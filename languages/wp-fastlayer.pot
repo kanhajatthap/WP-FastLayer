@@ -1,0 +1,23 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: WP FastLayer 1.0.0\n"
+"POT-Creation-Date: 2026-05-07 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: WP FastLayer\n"
+
+#: includes/class-admin.php:151
+msgid "WP FastLayer"
+msgstr ""
+
+#: includes/class-admin.php:164
+msgid "Cache cleared successfully!"
+msgstr ""
+
+#: includes/class-admin.php:170
+msgid "Cache preload completed!"
+msgstr ""
