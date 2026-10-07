@@ -1,0 +1,1345 @@
+﻿msgid ""
+msgstr ""
+"Project-Id-Version: FastLayer 1.0.0\n"
+"POT-Creation-Date: 2026-07-27 12:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: FastLayer\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: includes\class-database-optimization.php
+msgid "%1$s did not remove any rows. Records before cleanup: %2$d."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%1$s hr %2$s min"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%1$s in %2$s. %3$s"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%1$s min %2$s sec"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "%converted% / %total% converted"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "%converted% converted, %failed% failed, %remaining% remaining."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "%d image(s) processed."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "%percent%% complete"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "%percent%% of eligible images already have WebP files."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "%s failed with an unknown database error."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%s hour"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%s hours"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%s minute"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%s minutes"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%s second"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "%s seconds"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "0 / 0 converted"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "0 converted, 0 failed, 0 remaining."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Accept Header Sent"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Adds an admin-only overlay with rendered width, requested transform width, and oversize ratio."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Advanced"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Advanced HTML Minify"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Advanced Rules"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "After"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "All eligible media library images already have WebP files."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "All transients removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Already converted"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Auto drafts cleanup"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Auto Format"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Auto Format Mode"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Auto Quality"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Auto-drafts removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Automatically compresses images to reduce file size while keeping good visual quality."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Automatically serves modern image formats like WebP or AVIF when supported."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Background Detected"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Background Rewrite Detected"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Basic HTML Minify"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Batch %page% completed: %processed% processed, %converted% converted, %failed% failed."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Batch %page% progress: %processed% / %total%"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Batch progress will appear here when conversion starts."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Before"
+msgstr ""
+
+#: includes\class-admin.php, includes\class-webp.php
+msgid "Bulk WebP generation is currently disabled. Existing generated WebP files will continue working normally."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cache"
+msgstr ""
+
+#: includes\class-admin-bar.php
+msgid "Cache cleared successfully via FastLayer admin bar."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cache cleared successfully!"
+msgstr ""
+
+#: includes\class-admin-bar.php
+msgid "Cache preload completed successfully via FastLayer admin bar."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cache preload completed!"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cache Settings"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cache Status"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cache-Control"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cancel Conversion"
+msgstr ""
+
+#: includes\class-admin.php, includes\class-webp.php
+msgid "Cancelled"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cancelling WebP conversion after the current request..."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "CDN"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "CDN CNAME"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "CDN Optimization: Active"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "CDN Settings"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Choose the ImageKit auto-format transform used in URLs. Use fm-auto if ImageKit recommends it for your configuration."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Clean Now"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cleaning..."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Cleanup callback not found for %s."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Cleanup failed for %s."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cleanup Type"
+msgstr ""
+
+#: includes\class-admin-bar.php
+msgid "Clear All Cache"
+msgstr ""
+
+#: includes\class-admin-bar.php
+msgid "Clear CSS/JS Cache"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Collapse extra whitespace in HTML output to reduce page size."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Combine CSS Files"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Combine JavaScript Files"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Combining CSS files can change CSS execution order and may affect layout or dynamic styling."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Combining JavaScript may delay or change execution order and can affect scripts, widgets, and page behavior."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Compatibility note:"
+msgstr ""
+
+#: includes\class-admin.php, includes\class-webp.php
+msgid "Completed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Configuration"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Configure WebP conversion and lazy-loading for images and media."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Connected"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Conversion paused after the current batch."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Conversion summary updated."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Converted"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Converting image %current% of %total%"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Cookies to never cache (one per line)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Copied"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Copy Example"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Copy failed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Coverage"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Create Free Account"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "CSS"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "CSS Optimization"
+msgstr ""
+
+#: includes\class-admin-bar.php
+msgid "CSS/JS cache cleared successfully via FastLayer admin bar."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "CSS/JS cache cleared successfully!"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Current batch"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Current conversion summary"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Dashboard"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Database"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Database cleanup completed successfully."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Database cleanup completed with errors."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Database cleanup ran, but no matching records were removed."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Database optimization failed. Please try again."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Database optimized successfully!"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Database Options"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Database tables optimized"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Debug Error"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Defer JavaScript Execution"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Deferring JavaScript may prevent scripts from running at the expected time, affecting layout, sliders, or forms."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Delaying scripts until user interaction can improve performance but may impact third-party integrations and dynamic content."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Delete Attempts"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Detected Format"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Detected LCP Asset"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Detected support details:"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Download JSON Report"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate comment meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate comment meta rows removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Duplicate Path Segments"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Duplicate path segments detected in rewritten URL path."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate post meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate post meta rows removed"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate term meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate term meta rows removed"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate user meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Duplicate user meta rows removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Duration: %duration%"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Eager Loading Applied"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Eligible images"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable CDN Replacement"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable debug logging to troubleshoot caching issues. Logs are saved in the plugin\'s logs directory."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable Debug Mode"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable HTML Minification"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable ImageKit for image delivery"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable Lazyload"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable Runtime Width Correction (WP_DEBUG)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enable Smart JS Delay"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enter cookie names that should prevent caching when present. One cookie per line."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enter ImageKit endpoint to generate preview URL."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enter URLs that should never be cached. One URL per line. You can use wildcards like /category/*"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enter user agent strings that should never be cached. One user agent per line."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Enter your CDN hostname, for example https://cdn.example.com. Only internal assets will be rewritten."
+msgstr ""
+
+#: includes\class-admin-bar.php, includes\class-admin.php
+msgid "Error"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Estimated time remaining: %eta%"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ETA unavailable until conversion starts."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Exclude URLs, cookies and user agents from caching for compatibility."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Expired transients cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Expired transients removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Extra HTML Minify Options"
+msgstr ""
+
+#: includes\class-admin.php, includes\class-webp.php
+msgid "Failed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Failed Deletions"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Failed to optimize table %s: %s"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Final ImageKit URL"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Full Uploads Path (/wp-content/uploads/...)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "GD installed: %s, GD WebP support: %s, Imagick installed: %s, Imagick WebP support: %s."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Generate Critical CSS Sample"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Generate Responsive Image Debug Report"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Generate WebP for Existing Images"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Hide Detailed Logs"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "How it works"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "HTML"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "HTML Optimization"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "HTTP Status"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "IDs Detected"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit CDN (Images)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit delivery and local image optimization now run in compatibility mode. Local responsive sizes and WebP variants can still be generated and served safely while ImageKit handles final delivery."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit is enabled but endpoint is missing."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit Negotiation Debug"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit optimizes and delivers those images globally."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit Origin Path Mode"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit test failed (%1$s): %2$s returned HTTP %3$d."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit test failed: %s"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit test failed: Endpoint is missing. Please enter your ImageKit URL Endpoint first."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit test failed: The endpoint format looks invalid. Use a full URL like https://ik.imagekit.io/your_endpoint"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit test successful (%1$s): %2$s (HTTP %3$d)."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "ImageKit URL Endpoint"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "In ImageKit: Dashboard -> URL Endpoint. It usually looks like this:"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Inline Critical CSS"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Inlined critical CSS can improve first paint but may alter how page styles are applied."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Invalid Endpoint"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "JavaScript Optimization"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "JS"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "JS Optimization"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Keep Gutenberg block comments like <!-- wp:paragraph --> so block markup remains intact."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Last duration"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Last run"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Last run: %time%"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Last status"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Lazyload iframes"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Lazyload videos"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Lazyloading iframes may delay third-party embeds and affect interactive content or tracking scripts."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Lazyloading images can impact how media is displayed and may affect carousels, galleries, or Elementor layouts."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Lazyloading videos can alter playback timing and may change how media is presented on pages."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "Less than a second"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Live URL Preview"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Loading conversion summary..."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Local Optimization: Compatible with ImageKit"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Manage page caching and preload behavior for your site."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Max Oversize Ratio"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Media"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Media Optimization"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Minify and compress HTML output to reduce page size."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Minify and defer/async JavaScript to reduce render-blocking."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Minify HTML output by removing comments and whitespace from HTML pages."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Modern Format Delivered"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Modern Format Negotiation (fm-auto)"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "No cleanup item was selected. Enable at least one database cleanup action."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "No completed run yet"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "No eligible JPEG or PNG images were found for conversion."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "No history"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "No ImageKit URL available for testing."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "No images needed WebP conversion."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "No matching records were found for the selected cleanup items. Nothing was removed."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "No WebP images were generated. Verify that JPEG/PNG attachments exist and that the server supports WebP."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "No work needed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Normalized Path"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "Not available"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Not Configured"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "oEmbed cache cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "oEmbed cache rows removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Open ImageKit Dashboard"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Optimize CSS Delivery"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Optimize CSS delivery, combine files and manage critical CSS."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Optimize your database and clean up unused items safely."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Optimizing CSS delivery can affect how styles are loaded and may impact theme or page rendering."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Original URL"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned comment meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned comment meta rows removed"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned post meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned post meta rows removed"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned term meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned term meta rows removed"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned user meta cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Orphaned user meta rows removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Path Validation Warning"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Pause Conversion"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Pause requested. Current batch will complete before stopping."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Paused"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Pausing after the current batch..."
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Post revisions cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Post revisions removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Preload Applied"
+msgstr ""
+
+#: includes\class-admin-bar.php
+msgid "Preload Cache"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Preload URL"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Preparing next batch..."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Preserve Gutenberg Block Comments"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Preview unavailable for this URL and mode combination."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Preview updates automatically as you type or switch origin path mode."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Processed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Processing batch %page% of %count% â€” Converting image %current% of %total%"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Quick links"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Ready"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Real example: https://ik.imagekit.io/your_endpoint"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Refreshing conversion stats..."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Remaining"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Remove HTML Comments"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Remove HTML comments from the page output. This includes comments that are not critical for site rendering."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Remove HTML Whitespace"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Report contains runtime-collected rendered width, requested transform width, oversize ratio, srcset widths, and estimated mobile/desktop viewport widths."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Requested transform width is capped to this multiple of detected display width. Recommended: 1.5"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Response Content-Type"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Responsive Image Debug Report"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Resume Conversion"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "Resume from remaining only. Images that already have WebP files will be skipped automatically."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Resuming conversion from the remaining images."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Resuming WebP conversion..."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Rewrite supported internal asset URLs to a CDN hostname for faster delivery."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Rewritten ImageKit URL"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Running"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Save Changes"
+msgstr ""
+
+#: includes\class-admin-bar.php
+msgid "Security check failed."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Server WebP support details:"
+msgstr ""
+
+#: includes\class-admin-bar.php, includes\class-admin.php
+msgid "Settings"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Settings saved successfully."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Show Runtime Image Debug Overlay (WP_DEBUG)"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Site transients cleanup"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Smart LCP Last Detection Report"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Spam comments cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Spam comments removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Standard Auto Format (f-auto)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Standard CDN remains for CSS/JS and other assets. ImageKit is applied to image URLs."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "Start a conversion run to create WebP files for your existing media library."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Starting batch %page% (%processed% expected)."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Starting WebP conversion..."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Status: %status%"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Step 1: Create your free ImageKit account"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Step 2: Copy your URL Endpoint from ImageKit dashboard"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Step 3: Paste endpoint below, enable ImageKit, then save"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Step-by-step setup"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Still pending"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Successful Deletions"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Temporary Cleanup Diagnostics"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Test CDN URL"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Test validates endpoint + rewrite mode, requests a generated ImageKit URL, and shows HTTP success/failure."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "This plugin automatically rewrites image URLs on the frontend."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "This will convert existing JPEG and PNG attachments to WebP in batches. The process can resume safely if interrupted."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Total images"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Total rows removed: %d"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Transients cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Trashed posts cleanup"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Trashed posts removed"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Turn this on to serve your site images through ImageKit."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Unable to load current conversion summary."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Uploads Relative Path (/YYYY/MM/file.jpg)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "URLs to never cache (one per line)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Use a CDN hostname for internal assets to improve load times."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Use Full Uploads Path for standard ImageKit origins. Use Uploads Relative Path if your ImageKit endpoint already maps to uploads internally."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "User agents to never cache (one per line)"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "v"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Validation"
+msgstr ""
+
+#: includes\class-database-optimization.php
+msgid "Validation failed. Records before cleanup: %d, after cleanup: %d."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Vary Header"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "View Detailed Logs"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "View Documentation"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Waiting to start WebP conversion."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion cancelled."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion is currently unavailable on this server. Please enable GD with WebP support or install/configure Imagick with WebP support."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion is not supported on this server."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion is not supported on this server. Please enable GD WebP or Imagick."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion is paused. Resume when you are ready."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion is unavailable because the server does not currently support GD WebP or Imagick WebP. Enable one of those extensions to use bulk generation."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion progress"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion started. Processing batches in the background."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP conversion was cancelled. Partial progress has been saved."
+msgstr ""
+
+#: includes\class-webp.php
+msgid "WebP conversion will process the remaining eligible images in your media library."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP Conversion: Enabled"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP generation completed successfully."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP generation completed."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP generation failed."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "WebP generation stopped before completion. Please review the error details and try again."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "When WP_DEBUG is enabled, oversized ImageKit image URLs are corrected before image load using actual rendered width."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Where to find this: ImageKit Dashboard -> URL Endpoint."
+msgstr ""
+
+#: includes\class-admin-bar.php, includes\class-admin.php
+msgid "FastLayer"
+msgstr ""
+
+#: includes\class-webp.php
+msgid "FastLayer generated WebP files for uploaded image \"%s\"."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "FastLayer navigation"
+msgstr ""
+
+#: includes\class-admin.php
+msgid "You are not allowed to perform this action."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "You are not allowed to save WebP run data."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "You are not allowed to view WebP summary data."
+msgstr ""
+
+#: includes\class-admin-bar.php, includes\class-page-cache.php
+msgid "You do not have permission to perform this action."
+msgstr ""
+
+#: includes\class-admin.php
+msgid "Your original images stay on your own server."
+msgstr ""
+
