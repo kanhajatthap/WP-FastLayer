@@ -139,6 +139,40 @@ if ( class_exists( 'FastLayer\\Bootstrap' ) ) {
     \FastLayer\Bootstrap::remove_wp_cache_constant();
 }
 
+// Clear FastLayer's WebP rewrite directives from the site-root .htaccess. Only
+// the block wrapped in FastLayer's own marker is touched, and only when that
+// marker is actually present, so a foreign plugin block or a hand-written rule
+// is never modified. WordPress's insert_with_markers() keeps the BEGIN/END
+// markers and refills the block with its standard informational comments, so
+// this removes the directives rather than deleting the marker lines; that also
+// means insert_with_markers() must not run when the marker is absent, or it
+// would append a spurious block. The marker string must stay in sync with
+// FastLayer\Webp::HTACCESS_MARKER; this file runs standalone without the
+// plugin's autoloader. Generated .webp files are intentionally left in place:
+// their ownership cannot be established reliably, and they are inert without
+// the rewrite rule.
+if ( ! function_exists( 'get_home_path' ) ) {
+    $fastlayer_htaccess_file_include = ABSPATH . 'wp-admin/includes/file.php';
+    if ( file_exists( $fastlayer_htaccess_file_include ) ) {
+        require_once $fastlayer_htaccess_file_include;
+    }
+}
+if ( ! function_exists( 'insert_with_markers' ) ) {
+    $fastlayer_htaccess_misc_include = ABSPATH . 'wp-admin/includes/misc.php';
+    if ( file_exists( $fastlayer_htaccess_misc_include ) ) {
+        require_once $fastlayer_htaccess_misc_include;
+    }
+}
+if ( $fastlayer_filesystem && function_exists( 'get_home_path' ) && function_exists( 'insert_with_markers' ) ) {
+    $fastlayer_root_htaccess = trailingslashit( get_home_path() ) . '.htaccess';
+    if ( file_exists( $fastlayer_root_htaccess ) && wp_is_writable( $fastlayer_root_htaccess ) ) {
+        $fastlayer_root_htaccess_contents = $fastlayer_filesystem->get_contents( $fastlayer_root_htaccess );
+        if ( is_string( $fastlayer_root_htaccess_contents ) && false !== strpos( $fastlayer_root_htaccess_contents, '# BEGIN WP FastLayer WebP' ) ) {
+            insert_with_markers( $fastlayer_root_htaccess, 'WP FastLayer WebP', array() );
+        }
+    }
+}
+
 // Remove plugin logs (new location in uploads).
 $fastlayer_upload_dir = wp_upload_dir();
 $fastlayer_log_dir = trailingslashit( $fastlayer_upload_dir['basedir'] ) . 'wp-fastlayer-logs/';

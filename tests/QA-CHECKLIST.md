@@ -171,7 +171,7 @@ or claim PHP versions below 7.4 as tested.
 | ID | Test | Expected | Status | Evidence |
 | --- | --- | --- | --- | --- |
 | J-01 | Enable WebP; upload/generate | `.webp` generated beside original | Not Run | |
-| J-02 | `.htaccess` rules | `# BEGIN WP FastLayer WebP` block present, marked | Not Run | |
+| J-02 | `.htaccess` rules while WebP is enabled, and cleanup on disable/deactivate/uninstall | `# BEGIN WP FastLayer WebP` block present and marked while WebP is on; on disable/deactivate/uninstall the FastLayer directives are removed (the block is left with only WordPress's informational comments); foreign plugin blocks and user-written rules are never touched | Not Run | |
 | J-03 | Apache serves WebP when supported | Correct `Content-Type: image/webp`, `Vary: Accept` | Not Run | |
 | J-04 | nginx environment | WebP notice shown (nginx ignores `.htaccess`) | Not Run | |
 | J-05 | Reactive serve endpoint | 304 on conditional request; ETag/Last-Modified correct | Not Run | |

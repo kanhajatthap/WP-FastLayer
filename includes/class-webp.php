@@ -6,6 +6,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Webp {
+    /**
+     * Marker WordPress wraps FastLayer's WebP rewrite block with in the
+     * site-root .htaccess. Cleanup targets only this marker, so another
+     * plugin's block or a hand-written rule is never touched.
+     */
+    const HTACCESS_MARKER = 'WP FastLayer WebP';
+
     private static $instance = null;
     private $bulk_supported_mime_types = array( 'image/jpeg', 'image/jpg', 'image/png' );
     private $frontend_debug_enabled = null;
@@ -2960,7 +2967,24 @@ JS;
             return false;
         }
 
-        return false !== strpos( $contents, '# BEGIN WP FastLayer WebP' );
+        return self::contains_htaccess_marker( $contents );
+    }
+
+    /**
+     * Whether .htaccess contents carry FastLayer's WebP marker block.
+     *
+     * Kept pure and path-independent so the marker can be asserted in the
+     * regression test. Cleanup relies on this check before calling
+     * insert_with_markers(): with an empty array that function would otherwise
+     * append a new "# BEGIN …" / "# END …" block (filled with WordPress's
+     * informational comments) to a file that does not already contain the
+     * marker.
+     *
+     * @param string $contents .htaccess file contents.
+     * @return bool
+     */
+    public static function contains_htaccess_marker( $contents ) {
+        return is_string( $contents ) && false !== strpos( $contents, '# BEGIN ' . self::HTACCESS_MARKER );
     }
 
     /**
@@ -3025,7 +3049,7 @@ JS;
         // the file cannot be opened or written, and true once the rules are on
         // disk. The result used to be discarded, which left WebP enabled with no
         // rules and no indication of why.
-        if ( ! insert_with_markers( $htaccess_file, 'WP FastLayer WebP', $rules ) ) {
+        if ( ! insert_with_markers( $htaccess_file, self::HTACCESS_MARKER, $rules ) ) {
             $this->report_htaccess_failure( 'insert_with_markers() reported a failure while installing the WebP rewrite rules in ' . $htaccess_file . '.' );
         }
     }
@@ -3041,8 +3065,50 @@ JS;
             return;
         }
 
-        if ( ! insert_with_markers( $htaccess_file, 'WP FastLayer WebP', array() ) ) {
+        if ( ! insert_with_markers( $htaccess_file, self::HTACCESS_MARKER, array() ) ) {
             $this->report_htaccess_failure( 'insert_with_markers() reported a failure while removing the WebP rewrite rules from ' . $htaccess_file . '. They may still be active.' );
+        }
+    }
+
+    /**
+     * Clears FastLayer's WebP rewrite directives when the plugin is
+     * deactivated.
+     *
+     * Deactivation unloads the class, so the init-time self-heal in
+     * maybe_update_webp_rewrite_rules() can no longer run and the directives
+     * would otherwise stay active. This is best-effort: it loads the WordPress
+     * helpers itself, checks that the server actually reads .htaccess and that
+     * FastLayer's own marker is present, then defers to
+     * remove_webp_rewrite_rules(). Any error is swallowed so a deactivation can
+     * never fatal. Only the section matching FastLayer's marker is touched;
+     * another plugin's block or a hand-written rule is untouched. Note that
+     * insert_with_markers() keeps the BEGIN/END markers, so the block is
+     * emptied of directives rather than deleted.
+     *
+     * @return void
+     */
+    public function remove_rewrite_rules_on_deactivate() {
+        try {
+            if ( ! function_exists( 'insert_with_markers' ) ) {
+                require_once ABSPATH . 'wp-admin/includes/misc.php';
+            }
+            if ( ! function_exists( 'get_home_path' ) ) {
+                require_once ABSPATH . 'wp-admin/includes/file.php';
+            }
+
+            if ( ! function_exists( 'insert_with_markers' ) || ! function_exists( 'get_home_path' ) ) {
+                return;
+            }
+
+            // On stacks that do not read .htaccess the block was never written,
+            // and this also prevents an empty marker block from being added.
+            if ( ! $this->server_honours_htaccess() || ! $this->has_webp_rewrite_rules() ) {
+                return;
+            }
+
+            $this->remove_webp_rewrite_rules();
+        } catch ( \Throwable $e ) {
+            \fastlayer_debug_log( 'WP FastLayer WebP: deactivation .htaccess cleanup failed: ' . $e->getMessage() );
         }
     }
 

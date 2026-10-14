@@ -237,8 +237,20 @@ byte counts, re-reads and compares, and records failures via
 - `Webp` generates `.webp` next to originals (bulk and on-demand) and records
   `fastlayer_webp_last_run`.
 - Apache/LiteSpeed wrapping: rules are inserted into the site-root `.htaccess`
-  inside a `# BEGIN WP FastLayer WebP` … `# END WP FastLayer WebP` block using
-  `insert_with_markers`-style markers.
+  inside a `# BEGIN WP FastLayer WebP` … `# END WP FastLayer WebP` block
+  (`Webp::HTACCESS_MARKER`) using `insert_with_markers`-style markers. Removal
+  is always marker-scoped, so a foreign plugin's block or a hand-written rule is
+  never touched.
+- FastLayer's directives are cleared when WebP is switched off (the init-time
+  self-heal), on **deactivation**
+  (`Bootstrap::deactivate()` → `Webp::remove_rewrite_rules_on_deactivate()`,
+  best-effort and guarded so it can never fatal), and on **uninstall**
+  (`uninstall.php`, guarded on marker presence and writability). Because
+  WordPress core's `insert_with_markers()` always rewrites the `# BEGIN`/`# END`
+  markers and merges in its informational comments, the block itself is not
+  deleted — it is emptied of directives, which is what stops the rewrites.
+  Generated `.webp` files are deliberately left in place: their ownership cannot
+  be established reliably, and they are inert once the rewrite rule is gone.
 - A reactive PHP serving path responds with `Content-Type: image/webp`,
   `Vary: Accept`, `ETag`, `Last-Modified`, and `304` on conditional requests.
 - On nginx, `.htaccess` is ignored, so an admin notice explains WebP needs a

@@ -418,6 +418,13 @@ add_action( 'init', array( $this, 'init' ) );
         wp_clear_scheduled_hook( 'wp_fastlayer_preload_batch' );
         self::remove_advanced_cache_dropin();
         self::remove_wp_cache_constant();
+        // Clear FastLayer's WebP rewrite directives too: once the plugin is
+        // unloaded the init-time self-heal can no longer run, so the WebP
+        // rules would otherwise stay active. The call is guarded and
+        // best-effort so a deactivation can never fatal.
+        if ( class_exists( __NAMESPACE__ . '\\Webp' ) ) {
+            Webp::get_instance()->remove_rewrite_rules_on_deactivate();
+        }
     }
 
     /**
