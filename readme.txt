@@ -89,6 +89,8 @@ Keeps FastLayer away from anything that must stay untouched, and explains cache 
 
 == Installation ==
 
+FastLayer installs like any other WordPress plugin.
+
 1. In your WordPress admin, open Plugins > Add New, search for "FastLayer", then click Install Now and Activate.
 2. To install manually, upload the `fastlayer` folder to `/wp-content/plugins/` and activate the plugin from the Plugins screen.
 3. On activation, FastLayer installs its `advanced-cache.php` drop-in and adds `define( 'WP_CACHE', true );` to `wp-config.php` so page caching can work.
@@ -118,12 +120,16 @@ Enable features one group at a time and check the front end after each change.
 
 == Compatibility ==
 
+FastLayer is built to sit alongside the plugins and themes you already run.
+
 * **Other caching and optimization plugins:** run one page-cache engine and one minify engine per site to avoid conflicting output.
 * **Page builders and e-commerce:** Smart JS Delay keeps critical dependencies, Elementor and WooCommerce checkout/cart, and navigation scripts running immediately; exclusions and Safe Mode cover anything left over.
 * **Servers:** Apache and LiteSpeed apply the `.htaccess` rules directly, while nginx needs a manual server-level WebP rule. Page caching and asset optimization work on nginx, and FastLayer shows an admin notice with guidance when it detects nginx.
 * **Multisite:** not currently supported.
 
 == Frequently Asked Questions ==
+
+Answers to the questions that come up most often.
 
 = Does FastLayer change WordPress core files? =
 
@@ -167,6 +173,8 @@ Please open an issue on the plugin's GitHub repository: https://github.com/kanha
 
 == Troubleshooting ==
 
+Start here when something does not look right, and change one option at a time.
+
 = My changes are not showing on the front end =
 
 FastLayer clears its cache automatically when posts, comments, terms or the active theme change. If you are also running a server, CDN or second caching layer, that layer may still be serving an older copy. Clear the FastLayer cache from the admin bar, then clear your CDN or server cache as well.
@@ -207,9 +215,9 @@ ImageKit is a third-party image optimization and delivery service operated by Im
 
 == Uninstall and data removal ==
 
-Deactivating FastLayer removes its `advanced-cache.php` drop-in, its `wp-config.php` line, and its WebP `.htaccess` directives. Your settings and cached files are left in place.
-
-Deleting the plugin removes its options, transients, cron jobs and generated cache files, including the saved ImageKit endpoint (stored in your options and in the generated `wp-content/cache/wp-fastlayer/config.php`). WebP image files created next to your uploads are not deleted.
+* **Deactivate:** removes the `advanced-cache.php` drop-in, the `define( 'WP_CACHE', true );` line in `wp-config.php`, and the marked WebP block in `.htaccess`. Your settings and cached files are kept.
+* **Delete:** removes the plugin's options, transients, cron jobs and generated cache files, including the saved ImageKit endpoint, which is stored in your options and in the generated `wp-content/cache/wp-fastlayer/config.php`.
+* **Not removed:** WebP image files created next to your uploads are left in place.
 
 == Screenshots ==
 
