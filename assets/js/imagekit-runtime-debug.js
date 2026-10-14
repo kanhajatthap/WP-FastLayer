@@ -1,11 +1,11 @@
 (function () {
     'use strict';
 
-    if (!window.wpFastLayerImageRuntime || !window.wpFastLayerImageRuntime.enabled) {
+    if (!window.fastLayerImageRuntime || !window.fastLayerImageRuntime.enabled) {
         return;
     }
 
-    var cfg = window.wpFastLayerImageRuntime;
+    var cfg = window.fastLayerImageRuntime;
     var ratioLimit = Number(cfg.maxOversizeRatio || cfg.oversizeRatio || 1.5);
     var enableOverlay = !!cfg.overlayEnabled;
     var pendingReports = [];
@@ -103,7 +103,7 @@
         pendingReports = [];
 
         var body = new URLSearchParams();
-        body.append('action', cfg.collectAction || 'wp_fastlayer_image_debug_collect');
+        body.append('action', cfg.collectAction || 'fastlayer_image_debug_collect');
         body.append('nonce', cfg.nonce);
         body.append('entries', JSON.stringify(payload));
 

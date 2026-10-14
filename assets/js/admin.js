@@ -6,20 +6,20 @@
      * Admin::enqueue_admin_assets(), and this script is also enqueued from the
      * admin bar and the front end of the site. Reading it through a safe
      * accessor keeps a missing localization from aborting every handler below.
-     * It must not be named wpFastLayerAdmin locally: a var declaration is
+     * It must not be named fastLayerAdmin locally: a var declaration is
      * hoisted, so the typeof guard above would then read the hoisted but still
      * unassigned local instead of the global.
      */
-    var settings = (typeof wpFastLayerAdmin !== 'undefined' && wpFastLayerAdmin) ? wpFastLayerAdmin : {};
+    var settings = (typeof fastLayerAdmin !== 'undefined' && fastLayerAdmin) ? fastLayerAdmin : {};
 
     $(document).ready(function () {
-        $(document).on('click', '.wp_fastlayer_dismiss_nginx_notice', function (event) {
+        $(document).on('click', '.fastlayer_dismiss_nginx_notice', function (event) {
             event.preventDefault();
             var $notice = $(this).closest('.notice');
             var nonce = $(this).data('nonce') || '';
             if (nonce) {
                 $.post(ajaxurl, {
-                    action: 'wp_fastlayer_dismiss_nginx_webp_notice',
+                    action: 'fastlayer_dismiss_nginx_webp_notice',
                     nonce: nonce
                 });
             }
@@ -186,7 +186,7 @@
             var processingCleanupText = settings.db_cleanup_processing || 'Cleaning...';
             var cleanupAjaxUrl = settings.ajax_url || '';
             var cleanupNonce = settings.db_cleanup_nonce || '';
-            var cleanupAction = settings.db_cleanup_action || 'wp_fastlayer_database_cleanup';
+            var cleanupAction = settings.db_cleanup_action || 'fastlayer_database_cleanup';
             var canUseAjax = !!cleanupAjaxUrl && !!cleanupNonce;
 
             var formatCleanupCount = function (value) {
@@ -591,7 +591,7 @@
                 var batchCount = totalImages > 0 ? Math.ceil(totalImages / batchSize) : 0;
                 var currentImage = overallProcessed > 0 ? overallProcessed : 0;
                 var status = formatTemplate(
-                    settings.bulk_status_template || 'Processing batch %page% of %count% — Converting image %current% of %total%',
+                    settings.bulk_status_template || 'Processing batch %page% of %count% - Converting image %current% of %total%',
                     {
                         '%page%': page,
                         '%count%': batchCount || page,
@@ -722,7 +722,7 @@
                 return $.post(
                     settings.ajax_url,
                     {
-                        action: 'wp_fastlayer_webp_summary',
+                        action: 'fastlayer_webp_summary',
                         nonce: settings.nonce
                     }
                 ).done(function (response) {
@@ -747,7 +747,7 @@
                 return $.post(
                     settings.ajax_url,
                     {
-                        action: 'wp_fastlayer_webp_last_run',
+                        action: 'fastlayer_webp_last_run',
                         nonce: settings.nonce,
                         status: status,
                         duration: duration
@@ -873,7 +873,7 @@
                 activeRequest = $.post(
                     settings.ajax_url,
                     {
-                        action: 'wp_fastlayer_bulk_webp_batch',
+                        action: 'fastlayer_bulk_webp_batch',
                         nonce: settings.nonce,
                         page: page,
                         batch_size: batchSize

@@ -3,16 +3,18 @@ Contributors: kanhajatthap
 Tags: cache, performance, optimization, minify, lazy load
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Requires PHP: 7.4
+
+FastLayer makes WordPress faster with page caching, minification, lazy loading, WebP conversion and database cleanup.
 
 == Description ==
 FastLayer is a lightweight speed optimization plugin for WordPress. It includes page cache, HTML/CSS/JS minification, lazy loading, WebP conversion, database cleanup tools, and cache preloading.
 
 == Installation ==
-1. Upload the `FastLayer` folder to the `/wp-content/plugins/` directory.
+1. Upload the `fastlayer` folder to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the 'Plugins' menu in WordPress.
 3. Go to FastLayer in the admin menu and configure the features you want to enable.
 
@@ -50,10 +52,17 @@ FastLayer backs off rather than clobbering other software: it will not overwrite
 1. FastLayer admin dashboard showing optimization features.
 
 == Changelog ==
+= 1.1.0 =
+* Renamed all plugin-prefixed identifiers (options, cron hooks, transients, asset handles, constants and classes) to the `fastlayer_*` naming scheme required by the WordPress.org plugin directory.
+* Added automatic migration for existing installs: settings, scheduled preload jobs, transient keys and cache drop-in ownership are carried over safely.
+* Combined CSS/JS are now registered through WordPress core style/script printing APIs.
+* Added extra safety checks for cache and minified-asset file writes.
+* Uninstall now fully removes plugin options, transients, cron jobs and cache files.
+
 = 1.0.0 =
 * Initial release.
 * Added page cache, cache preload, minify options, lazy load, WebP conversion, and database optimization.
 
 == Upgrade Notice ==
-= 1.0.0 =
-* Initial release.
+= 1.1.0 =
+* Settings, preload schedules and cached content carry over automatically to the new naming scheme.

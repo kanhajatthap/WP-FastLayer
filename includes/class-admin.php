@@ -1,10 +1,10 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class Admin {
     private static $instance = null;
-    private $option_name = 'wp_fastlayer_options';
+    private $option_name = 'fastlayer_options';
 
     public static function get_instance() {
         if ( null === self::$instance ) self::$instance = new self();
@@ -13,30 +13,30 @@ class Admin {
 
     private function __construct() {
         add_action( 'admin_menu', array( $this, 'add_menu_page' ) );
-        add_filter( 'plugin_action_links_' . plugin_basename( WP_FASTLAYER_FILE ), array( $this, 'add_plugin_action_links' ) );
+        add_filter( 'plugin_action_links_' . plugin_basename( FASTLAYER_FILE ), array( $this, 'add_plugin_action_links' ) );
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( 'WP FastLayer: Admin constructor running, admin_menu hook added.' );
+            \fastlayer_debug_log( 'WP FastLayer: Admin constructor running, admin_menu hook added.' );
         }
         add_action( 'admin_init', array( $this, 'register_settings' ) );
-        add_action( 'admin_post_wp_fastlayer_clear_cache', array( $this, 'clear_cache' ) );
-        add_action( 'admin_post_wp_fastlayer_cache_debug_test', array( $this, 'handle_cache_debug_test' ) );
-        add_action( 'admin_post_wp_fastlayer_manual_preload', array( $this, 'manual_preload' ) );
-        add_action( 'admin_post_wp_fastlayer_test_imagekit', array( $this, 'test_imagekit_connection' ) );
-        add_action( 'admin_post_wp_fastlayer_generate_image_debug_report', array( $this, 'generate_image_debug_report' ) );
-        add_action( 'admin_post_wp_fastlayer_download_image_debug_report', array( $this, 'download_image_debug_report' ) );
-        add_action( 'admin_post_wp_fastlayer_generate_critical_css', array( $this, 'generate_critical_css' ) );
-        add_action( 'admin_post_wp_fastlayer_bulk_webp', array( $this, 'bulk_generate_webp' ) );
-        add_action( 'wp_ajax_wp_fastlayer_bulk_webp_batch', array( $this, 'ajax_bulk_generate_webp_batch' ) );
-        add_action( 'wp_ajax_wp_fastlayer_webp_summary', array( $this, 'ajax_get_webp_summary' ) );
-        add_action( 'wp_ajax_wp_fastlayer_webp_last_run', array( $this, 'ajax_save_webp_last_run' ) );
-        add_action( 'wp_ajax_wp_fastlayer_preload_status', array( $this, 'ajax_get_preload_status' ) );
+        add_action( 'admin_post_fastlayer_clear_cache', array( $this, 'clear_cache' ) );
+        add_action( 'admin_post_fastlayer_cache_debug_test', array( $this, 'handle_cache_debug_test' ) );
+        add_action( 'admin_post_fastlayer_manual_preload', array( $this, 'manual_preload' ) );
+        add_action( 'admin_post_fastlayer_test_imagekit', array( $this, 'test_imagekit_connection' ) );
+        add_action( 'admin_post_fastlayer_generate_image_debug_report', array( $this, 'generate_image_debug_report' ) );
+        add_action( 'admin_post_fastlayer_download_image_debug_report', array( $this, 'download_image_debug_report' ) );
+        add_action( 'admin_post_fastlayer_generate_critical_css', array( $this, 'generate_critical_css' ) );
+        add_action( 'admin_post_fastlayer_bulk_webp', array( $this, 'bulk_generate_webp' ) );
+        add_action( 'wp_ajax_fastlayer_bulk_webp_batch', array( $this, 'ajax_bulk_generate_webp_batch' ) );
+        add_action( 'wp_ajax_fastlayer_webp_summary', array( $this, 'ajax_get_webp_summary' ) );
+        add_action( 'wp_ajax_fastlayer_webp_last_run', array( $this, 'ajax_save_webp_last_run' ) );
+        add_action( 'wp_ajax_fastlayer_preload_status', array( $this, 'ajax_get_preload_status' ) );
         add_action( 'current_screen', array( $this, 'setup_admin_notice_suppression' ), 1 );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
     }
 
     public function add_menu_page() {
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( 'WP FastLayer: add_menu_page called.' );
+            \fastlayer_debug_log( 'WP FastLayer: add_menu_page called.' );
         }
         add_menu_page( __( 'FastLayer', 'fastlayer' ), __( 'FastLayer', 'fastlayer' ), 'manage_options', 'wp-fastlayer', array( $this, 'render_dashboard' ), 'dashicons-performance', 100 );
         add_submenu_page( 'wp-fastlayer', __( 'Dashboard', 'fastlayer' ), __( 'Dashboard', 'fastlayer' ), 'manage_options', 'wp-fastlayer', array( $this, 'render_dashboard' ) );
@@ -55,7 +55,7 @@ class Admin {
     }
 
     public function setup_admin_notice_suppression( $screen ) {
-        if ( ! $this->is_wp_fastlayer_admin_screen( $screen ) ) {
+        if ( ! $this->is_fastlayer_admin_screen( $screen ) ) {
             return;
         }
 
@@ -65,15 +65,15 @@ class Admin {
     }
 
     public function enqueue_admin_notice_scope_css() {
-        wp_register_style( 'wp-fastlayer-admin-notice-scope', false, array(), WP_FASTLAYER_VERSION );
-        wp_enqueue_style( 'wp-fastlayer-admin-notice-scope' );
+        wp_register_style( 'fastlayer-admin-notice-scope', false, array(), FASTLAYER_VERSION );
+        wp_enqueue_style( 'fastlayer-admin-notice-scope' );
         wp_add_inline_style(
-            'wp-fastlayer-admin-notice-scope',
+            'fastlayer-admin-notice-scope',
             '.wrap .notice:not(.wpfastlayer-notice), .wrap .update-nag, .wrap .notice-warning:not(.wpfastlayer-notice), .wrap .notice-info:not(.wpfastlayer-notice) { display: none !important; }'
         );
     }
 
-    private function is_wp_fastlayer_admin_screen( $screen ) {
+    private function is_fastlayer_admin_screen( $screen ) {
         if ( ! is_object( $screen ) ) {
             $screen = get_current_screen();
         }
@@ -98,7 +98,7 @@ class Admin {
      * legacy and the current forms are accepted so the localized admin script
      * data is always emitted on FastLayer screens.
      */
-    private function is_wp_fastlayer_admin_hook( $hook ) {
+    private function is_fastlayer_admin_hook( $hook ) {
         $hook = is_string( $hook ) ? $hook : '';
 
         if ( '' === $hook ) {
@@ -138,12 +138,12 @@ class Admin {
     }
 
     public function handle_cache_debug_test() {
-        check_admin_referer( 'wp_fastlayer_cache_debug_test_nonce' );
+        check_admin_referer( 'fastlayer_cache_debug_test_nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
 
-        $cache_dir = WP_FASTLAYER_CACHE_DIR;
+        $cache_dir = FASTLAYER_CACHE_DIR;
         $result = array(
             'cache_dir' => wp_normalize_path( $cache_dir ),
             'writable' => false,
@@ -155,30 +155,34 @@ class Admin {
         );
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( 'WP FastLayer: cache debug test started. dir=' . wp_normalize_path( $cache_dir ) );
+            \fastlayer_debug_log( 'WP FastLayer: cache debug test started. dir=' . wp_normalize_path( $cache_dir ) );
         }
 
         if ( ! is_dir( $cache_dir ) ) {
             $result['detail'] = 'Cache directory does not exist.';
         } else {
-            $result['writable'] = is_writable( $cache_dir );
+            $result['writable'] = wp_is_writable( $cache_dir );
             $test_file = trailingslashit( wp_normalize_path( $cache_dir ) ) . '_admin_cache_debug_' . wp_rand() . '.tmp';
             $written = @file_put_contents( $test_file, 'wp-fastlayer-admin-debug', LOCK_EX );
             $result['write'] = false === $written ? 'failed' : 'success';
             $result['detail'] = 'write_bytes=' . ( false === $written ? '0' : $written );
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( 'WP FastLayer: cache debug test write result=' . $result['write'] . ' ; file=' . basename( $test_file ) . ' ; dir=' . wp_normalize_path( $cache_dir ) );
+                \fastlayer_debug_log( 'WP FastLayer: cache debug test write result=' . $result['write'] . ' ; file=' . basename( $test_file ) . ' ; dir=' . wp_normalize_path( $cache_dir ) );
             }
             if ( false !== $written && file_exists( $test_file ) ) {
                 $result['read'] = @file_get_contents( $test_file ) === 'wp-fastlayer-admin-debug' ? 'success' : 'mismatch';
-                $result['delete'] = @unlink( $test_file ) ? 'success' : 'failed';
+                // wp_delete_file() is the recommended replacement for unlink().
+                // It has no reliable return value before WordPress 6.7, so the
+                // outcome is verified by checking whether the file still exists.
+                wp_delete_file( $test_file );
+                $result['delete'] = file_exists( $test_file ) ? 'failed' : 'success';
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    \wp_fastlayer_debug_log( 'WP FastLayer: cache debug test read=' . $result['read'] . ' ; delete=' . $result['delete'] );
+                    \fastlayer_debug_log( 'WP FastLayer: cache debug test read=' . $result['read'] . ' ; delete=' . $result['delete'] );
                 }
             }
         }
 
-        set_transient( 'wp_fastlayer_cache_debug_test_result', $result, 300 );
+        set_transient( 'fastlayer_cache_debug_test_result', $result, 300 );
 
         $redirect_url = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=wp-fastlayer-cache' );
         $redirect_url = add_query_arg( 'cache_debug_test', '1', $redirect_url );
@@ -191,17 +195,6 @@ class Admin {
         $existing_options = wp_parse_args( get_option( $this->option_name, array() ), $defaults );
         $sanitized = $existing_options;
         $input = is_array( $input ) ? $input : array();
-
-        // Debug logging: capture raw POST for wp_fastlayer_options (only when WP_DEBUG is enabled).
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Settings API callback; nonce verified by WordPress core.
-            if ( isset( $_POST['wp_fastlayer_options'] ) ) {
-                // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Settings API callback; nonce verified by WordPress core.
-                \wp_fastlayer_debug_log( 'CSS OPTION INPUT: ' . print_r( $_POST['wp_fastlayer_options'], true ) );
-            } else {
-                \wp_fastlayer_debug_log( 'CSS OPTION INPUT: (none)' );
-            }
-        }
 
         $checkbox_fields = array(
             'enable_cache', 'enable_preload', 'enable_minify', 'enable_minify_css', 'enable_minify_js',
@@ -299,7 +292,7 @@ class Admin {
         $sanitized['enable_html_preserve_gutenberg_comments'] = isset( $input['enable_html_preserve_gutenberg_comments'] ) ? '1' === (string) $input['enable_html_preserve_gutenberg_comments'] ? '1' : '0' : ( isset( $existing_options['enable_html_preserve_gutenberg_comments'] ) ? $existing_options['enable_html_preserve_gutenberg_comments'] : '1' );
         $sanitized['enable_css_remove_unused'] = isset( $input['enable_css_remove_unused'] ) ? '1' === (string) $input['enable_css_remove_unused'] ? '1' : '0' : ( isset( $existing_options['enable_css_remove_unused'] ) ? $existing_options['enable_css_remove_unused'] : '0' );
         $sanitized['enable_google_fonts_display'] = isset( $input['enable_google_fonts_display'] ) ? '1' === (string) $input['enable_google_fonts_display'] ? '1' : '0' : ( isset( $existing_options['enable_google_fonts_display'] ) ? $existing_options['enable_google_fonts_display'] : ( isset( $existing_options['enable_font_display_swap'] ) ? $existing_options['enable_font_display_swap'] : '1' ) );
-        $sanitized['_version'] = WP_FASTLAYER_VERSION;
+        $sanitized['_version'] = FASTLAYER_VERSION;
 
         if ( $this->should_clear_cache_on_option_change( $existing_options, $sanitized, $keys_to_compare ) ) {
             Page_Cache::get_instance()->clear_all_cache();
@@ -307,7 +300,7 @@ class Admin {
 
         // Debug logging: capture sanitized array before returning (only when WP_DEBUG is enabled).
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( 'CSS OPTION SANITIZED: ' . print_r( $sanitized, true ) );
+            \fastlayer_debug_log( 'CSS OPTION SANITIZED: ' . wp_json_encode( $sanitized ) );
         }
 
         Bootstrap::write_static_config( $sanitized );
@@ -462,7 +455,7 @@ class Admin {
     }
 
     private function render_page_navigation() {
-        $current = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : 'wp-fastlayer';
+        $current = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : 'wp-fastlayer'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
         $groups = $this->get_admin_tabs();
 
         echo '<nav class="wpfl-page-navigation" aria-label="' . esc_attr__( 'FastLayer navigation', 'fastlayer' ) . '">';
@@ -504,8 +497,8 @@ class Admin {
             <button type="button" class="wpfl-header-action" title="Quick settings">
                 <span class="dashicons dashicons-admin-generic" aria-hidden="true"></span>
             </button>
-            <?php if ( defined( 'WP_FASTLAYER_VERSION' ) ) : ?>
-                <div class="wpfl-version"><?php echo esc_html__( 'v', 'fastlayer' ) . esc_html( WP_FASTLAYER_VERSION ); ?></div>
+            <?php if ( defined( 'FASTLAYER_VERSION' ) ) : ?>
+                <div class="wpfl-version"><?php echo esc_html__( 'v', 'fastlayer' ) . esc_html( FASTLAYER_VERSION ); ?></div>
             <?php endif; ?>
         </div>
         <?php
@@ -514,7 +507,12 @@ class Admin {
     }
 
     private function render_settings_saved_notice() {
-        if ( isset( $_GET['settings-updated'] ) && 'true' === $_GET['settings-updated'] ) {
+        // Read-only core flag (added by options.php after a successful save). It
+        // is unslashed and sanitized before comparison; a missing parameter
+        // resolves to an empty string so the notice is simply not shown.
+        $settings_updated = isset( $_GET['settings-updated'] ) ? sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
+
+        if ( 'true' === $settings_updated ) {
             echo '<div class="notice notice-success wpfastlayer-notice is-dismissible"><p>' . esc_html__( 'Settings saved successfully.', 'fastlayer' ) . '</p></div>';
         }
 
@@ -522,16 +520,16 @@ class Admin {
             settings_errors( $this->option_name );
         }
 
-        $imagekit_notice = get_transient( 'wp_fastlayer_imagekit_test_notice' );
+        $imagekit_notice = get_transient( 'fastlayer_imagekit_test_notice' );
         if ( is_array( $imagekit_notice ) && ! empty( $imagekit_notice['message'] ) ) {
             $notice_class = ( isset( $imagekit_notice['type'] ) && 'success' === $imagekit_notice['type'] ) ? 'notice-success' : 'notice-error';
             echo '<div class="notice ' . esc_attr( $notice_class ) . ' wpfastlayer-notice is-dismissible"><p>' . esc_html( $imagekit_notice['message'] ) . '</p></div>';
-            delete_transient( 'wp_fastlayer_imagekit_test_notice' );
+            delete_transient( 'fastlayer_imagekit_test_notice' );
         }
     }
 
     public function clear_cache( $redirect_url = '' ) {
-        check_admin_referer( 'wp_fastlayer_clear_cache_nonce' );
+        check_admin_referer( 'fastlayer_clear_cache_nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
@@ -545,7 +543,7 @@ class Admin {
         $preload_stats = $this->clear_preload_cache_artifacts();
 
         if ( function_exists( 'delete_transient' ) ) {
-            \delete_transient( 'wp_fastlayer_cache_debug_trace' );
+            \delete_transient( 'fastlayer_cache_debug_trace' );
         }
 
         $cache_stats_after = $this->get_cache_stats();
@@ -556,7 +554,7 @@ class Admin {
     }
 
     public function manual_preload( $redirect_url = '' ) {
-        check_admin_referer( 'wp_fastlayer_preload_nonce' );
+        check_admin_referer( 'fastlayer_preload_nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
@@ -565,7 +563,7 @@ class Admin {
         $status  = $preload->preload_cache( 'manual' );
 
         if ( function_exists( 'delete_transient' ) ) {
-            \delete_transient( 'wp_fastlayer_cache_debug_trace' );
+            \delete_transient( 'fastlayer_cache_debug_trace' );
         }
 
         wp_safe_redirect( $this->get_safe_redirect_url( $redirect_url, admin_url( 'admin.php?page=wp-fastlayer&preload=' . rawurlencode( $status ) ) ) );
@@ -578,7 +576,7 @@ class Admin {
      * request that started it returned.
      */
     public function ajax_get_preload_status() {
-        check_ajax_referer( 'wp_fastlayer_preload_nonce', 'nonce' );
+        check_ajax_referer( 'fastlayer_preload_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => __( 'You are not allowed to view the preload status.', 'fastlayer' ) ), 403 );
         }
@@ -587,7 +585,7 @@ class Admin {
     }
 
     public function test_imagekit_connection() {
-        check_admin_referer( 'wp_fastlayer_test_imagekit_nonce' );
+        check_admin_referer( 'fastlayer_test_imagekit_nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
@@ -598,7 +596,7 @@ class Admin {
 
         if ( '' === $endpoint ) {
             set_transient(
-                'wp_fastlayer_imagekit_test_notice',
+                'fastlayer_imagekit_test_notice',
                 array(
                     'type'    => 'error',
                     'message' => __( 'ImageKit test failed: Endpoint is missing. Please enter your ImageKit URL Endpoint first.', 'fastlayer' ),
@@ -612,7 +610,7 @@ class Admin {
 
         if ( ! $this->is_valid_imagekit_endpoint( $endpoint ) ) {
             set_transient(
-                'wp_fastlayer_imagekit_test_notice',
+                'fastlayer_imagekit_test_notice',
                 array(
                     'type'    => 'error',
                     'message' => __( 'ImageKit test failed: The endpoint format looks invalid. Use a full URL like https://ik.imagekit.io/your_endpoint', 'fastlayer' ),
@@ -628,7 +626,7 @@ class Admin {
 
         if ( ! $this->is_permitted_imagekit_request_url( $test_url ) ) {
             set_transient(
-                'wp_fastlayer_imagekit_test_notice',
+                'fastlayer_imagekit_test_notice',
                 array(
                     'type'    => 'error',
                     'message' => __( 'ImageKit test failed: The endpoint format looks invalid. Use a full URL like https://ik.imagekit.io/your_endpoint', 'fastlayer' ),
@@ -666,7 +664,7 @@ class Admin {
 
         if ( is_wp_error( $response ) ) {
             set_transient(
-                'wp_fastlayer_imagekit_test_notice',
+                'fastlayer_imagekit_test_notice',
                 array(
                     'type'    => 'error',
                     'message' => sprintf(
@@ -683,7 +681,7 @@ class Admin {
 
             if ( $code >= 200 && $code < 500 ) {
                 set_transient(
-                    'wp_fastlayer_imagekit_test_notice',
+                    'fastlayer_imagekit_test_notice',
                     array(
                         'type'    => 'success',
                         'message' => sprintf(
@@ -698,7 +696,7 @@ class Admin {
                 );
             } else {
                 set_transient(
-                    'wp_fastlayer_imagekit_test_notice',
+                    'fastlayer_imagekit_test_notice',
                     array(
                         'type'    => 'error',
                         'message' => sprintf(
@@ -719,32 +717,32 @@ class Admin {
     }
 
     public function generate_image_debug_report() {
-        check_admin_referer( 'wp_fastlayer_generate_image_debug_report_nonce' );
+        check_admin_referer( 'fastlayer_generate_image_debug_report_nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
 
-        $samples = get_option( 'wp_fastlayer_image_runtime_debug_samples', array() );
+        $samples = get_option( 'fastlayer_image_runtime_debug_samples', array() );
         $samples = is_array( $samples ) ? $samples : array();
 
         $report = $this->build_image_runtime_debug_report( $samples );
-        set_transient( 'wp_fastlayer_image_debug_report_payload', $report, 1800 );
+        set_transient( 'fastlayer_image_debug_report_payload', $report, 1800 );
 
         wp_safe_redirect( add_query_arg( 'image_debug_report', 'generated', admin_url( 'admin.php?page=wp-fastlayer-cdn' ) ) );
         exit;
     }
 
     public function download_image_debug_report() {
-        check_admin_referer( 'wp_fastlayer_download_image_debug_report_nonce' );
+        check_admin_referer( 'fastlayer_download_image_debug_report_nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
 
-        $report = get_transient( 'wp_fastlayer_image_debug_report_payload' );
+        $report = get_transient( 'fastlayer_image_debug_report_payload' );
         if ( ! is_array( $report ) ) {
-            $samples = get_option( 'wp_fastlayer_image_runtime_debug_samples', array() );
+            $samples = get_option( 'fastlayer_image_runtime_debug_samples', array() );
             $report = $this->build_image_runtime_debug_report( is_array( $samples ) ? $samples : array() );
         }
 
@@ -888,7 +886,7 @@ class Admin {
         if ( '' === $original_test_url ) {
             $uploads = wp_upload_dir();
             $baseurl = isset( $uploads['baseurl'] ) && is_string( $uploads['baseurl'] ) ? untrailingslashit( $uploads['baseurl'] ) : '';
-            $original_test_url = '' !== $baseurl ? $baseurl . '/demo.jpg' : home_url( '/wp-content/uploads/demo.jpg' );
+            $original_test_url = '' !== $baseurl ? $baseurl . '/demo.jpg' : content_url( 'uploads' ) . '/demo.jpg';
         }
 
         $url = $this->build_imagekit_rewritten_url( $endpoint, $original_test_url, $options );
@@ -1055,7 +1053,7 @@ class Admin {
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer ImageKit] imagekit_request_url=' . $data['final_url'] . ' | browser_accept_header=' . $data['accept_header'] . ' | final_content_type=' . $data['content_type'] . ' | modern_format_detected=' . ( $data['modern_format_detected'] ? 'yes' : 'no' ) . ' | imagekit_cache_status=' . $data['cache_status'] );
+            \fastlayer_debug_log( '[WP FastLayer ImageKit] imagekit_request_url=' . $data['final_url'] . ' | browser_accept_header=' . $data['accept_header'] . ' | final_content_type=' . $data['content_type'] . ' | modern_format_detected=' . ( $data['modern_format_detected'] ? 'yes' : 'no' ) . ' | imagekit_cache_status=' . $data['cache_status'] );
         }
 
         return $data;
@@ -1084,7 +1082,7 @@ class Admin {
     }
 
     public function clear_css_js_cache( $redirect_url = '' ) {
-        check_admin_referer( 'wp_fastlayer_clear_cache_nonce' );
+        check_admin_referer( 'fastlayer_clear_cache_nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
@@ -1095,7 +1093,7 @@ class Admin {
         $minify_stats = $this->clear_minify_cache();
 
         if ( function_exists( 'delete_transient' ) ) {
-            \delete_transient( 'wp_fastlayer_cache_debug_trace' );
+            \delete_transient( 'fastlayer_cache_debug_trace' );
         }
 
         $cache_stats_after = $this->get_cache_stats();
@@ -1106,7 +1104,7 @@ class Admin {
     }
 
     public function generate_critical_css() {
-        check_admin_referer( 'wp_fastlayer_generate_critical_css_nonce' );
+        check_admin_referer( 'fastlayer_generate_critical_css_nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
@@ -1125,7 +1123,7 @@ class Admin {
     }
 
     public function bulk_generate_webp() {
-        check_admin_referer( 'wp_fastlayer_bulk_webp_nonce' );
+        check_admin_referer( 'fastlayer_bulk_webp_nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
@@ -1142,7 +1140,7 @@ class Admin {
         }
 
         if ( function_exists( 'set_time_limit' ) ) {
-            @set_time_limit( 0 );
+            @set_time_limit( 0 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- large bulk operation legitimately needs the default time limit lifted; guarded by function_exists( 'set_time_limit' ).
         }
 
         $count = $webp->bulk_generate_webp();
@@ -1155,7 +1153,7 @@ class Admin {
     }
 
     public function ajax_bulk_generate_webp_batch() {
-        check_ajax_referer( 'wp_fastlayer_bulk_webp_nonce', 'nonce' );
+        check_ajax_referer( 'fastlayer_bulk_webp_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => __( 'You are not allowed to perform this action.', 'fastlayer' ) ), 403 );
         }
@@ -1184,7 +1182,7 @@ class Admin {
     }
 
     public function ajax_get_webp_summary() {
-        check_ajax_referer( 'wp_fastlayer_bulk_webp_nonce', 'nonce' );
+        check_ajax_referer( 'fastlayer_bulk_webp_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => __( 'You are not allowed to view WebP summary data.', 'fastlayer' ) ), 403 );
         }
@@ -1193,7 +1191,7 @@ class Admin {
     }
 
     public function ajax_save_webp_last_run() {
-        check_ajax_referer( 'wp_fastlayer_bulk_webp_nonce', 'nonce' );
+        check_ajax_referer( 'fastlayer_bulk_webp_nonce', 'nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => __( 'You are not allowed to save WebP run data.', 'fastlayer' ) ), 403 );
         }
@@ -1302,8 +1300,8 @@ class Admin {
         );
 
         $cache_dirs = $this->detect_cache_directories();
-        if ( empty( $cache_dirs ) && defined( 'WP_FASTLAYER_CACHE_DIR' ) && is_dir( WP_FASTLAYER_CACHE_DIR ) ) {
-            $cache_dirs[] = trailingslashit( wp_normalize_path( WP_FASTLAYER_CACHE_DIR ) );
+        if ( empty( $cache_dirs ) && defined( 'FASTLAYER_CACHE_DIR' ) && is_dir( FASTLAYER_CACHE_DIR ) ) {
+            $cache_dirs[] = trailingslashit( wp_normalize_path( FASTLAYER_CACHE_DIR ) );
         }
 
         $stats['cache_dirs'] = $cache_dirs;
@@ -1393,8 +1391,8 @@ class Admin {
     private function detect_cache_directories() {
         $candidates = array();
 
-        if ( defined( 'WP_FASTLAYER_CACHE_DIR' ) ) {
-            $candidates[] = trailingslashit( wp_normalize_path( WP_FASTLAYER_CACHE_DIR ) );
+        if ( defined( 'FASTLAYER_CACHE_DIR' ) ) {
+            $candidates[] = trailingslashit( wp_normalize_path( FASTLAYER_CACHE_DIR ) );
         }
 
         if ( defined( 'WP_CONTENT_DIR' ) ) {
@@ -1450,7 +1448,7 @@ class Admin {
     }
 
     private function log_cache_stats_debug( $stats ) {
-        if ( ! class_exists( 'WP_FastLayer\\Logger' ) ) {
+        if ( ! class_exists( 'FastLayer\\Logger' ) ) {
             return;
         }
 
@@ -1532,12 +1530,12 @@ class Admin {
             if ( $item->isFile() ) {
                 $stats['bytes_deleted'] += (int) $item->getSize();
                 $stats['files_deleted']++;
-                @unlink( $item->getPathname() );
+                wp_delete_file( $item->getPathname() );
                 continue;
             }
 
             if ( $item->isDir() ) {
-                @rmdir( $item->getPathname() );
+                Bootstrap::delete_empty_directory( $item->getPathname() );
             }
         }
 
@@ -1545,7 +1543,7 @@ class Admin {
     }
 
     private function log_cache_clear( $message, $cache_stats, $minify_stats = null, $upload_stats = null ) {
-        if ( ! class_exists( 'WP_FastLayer\\Logger' ) ) {
+        if ( ! class_exists( 'FastLayer\\Logger' ) ) {
             return;
         }
 
@@ -1560,27 +1558,29 @@ class Admin {
     }
 
     public function enqueue_admin_assets( $hook ) {
-        if ( ! $this->is_wp_fastlayer_admin_hook( $hook ) ) {
+        if ( ! $this->is_fastlayer_admin_hook( $hook ) ) {
             return;
         }
 
         wp_enqueue_style( 'dashicons' );
-        wp_enqueue_style( 'wp-fastlayer-admin', WP_FASTLAYER_URL . 'assets/css/admin.css', array(), WP_FASTLAYER_VERSION );
-        wp_enqueue_script( 'wp-fastlayer-admin', WP_FASTLAYER_URL . 'assets/js/admin.js', array( 'jquery' ), WP_FASTLAYER_VERSION, true );
+        wp_enqueue_style( 'fastlayer-admin', FASTLAYER_URL . 'assets/css/admin.css', array(), FASTLAYER_VERSION );
+        wp_enqueue_script( 'fastlayer-admin', FASTLAYER_URL . 'assets/js/admin.js', array( 'jquery' ), FASTLAYER_VERSION, true );
         $uploads = wp_upload_dir();
         $uploads_path = wp_parse_url( isset( $uploads['baseurl'] ) ? $uploads['baseurl'] : '', PHP_URL_PATH );
         $uploads_path = is_string( $uploads_path ) ? '/' . ltrim( untrailingslashit( $uploads_path ), '/' ) : '/wp-content/uploads';
         wp_localize_script(
-            'wp-fastlayer-admin',
-            'wpFastLayerAdmin',
+            'fastlayer-admin',
+            'fastLayerAdmin',
             array(
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
-                'nonce'    => wp_create_nonce( 'wp_fastlayer_bulk_webp_nonce' ),
+                'nonce'    => wp_create_nonce( 'fastlayer_bulk_webp_nonce' ),
                 'bulk_button_text' => __( 'Generate WebP for Existing Images', 'fastlayer' ),
                 'bulk_cancel_text' => __( 'Cancel Conversion', 'fastlayer' ),
                 'bulk_running' => __( 'Starting WebP conversion...', 'fastlayer' ),
                 'bulk_processing' => __( 'Preparing next batch...', 'fastlayer' ),
+                /* translators: %current%: current image number; %total%: total number of images. */
                 'bulk_progress_template' => __( 'Converting image %current% of %total%', 'fastlayer' ),
+                /* translators: %converted%: number of images already converted; %total%: total number of images. */
                 'bulk_progress_count_template' => __( '%converted% / %total% converted', 'fastlayer' ),
                 'bulk_success' => __( 'WebP generation completed.', 'fastlayer' ),
                 'bulk_success_notice' => __( 'WebP generation completed successfully.', 'fastlayer' ),
@@ -1597,14 +1597,17 @@ class Admin {
                 'bulk_cancelled_notice' => __( 'WebP conversion was cancelled. Partial progress has been saved.', 'fastlayer' ),
                 'bulk_cancelled_message' => __( 'WebP conversion cancelled.', 'fastlayer' ),
                 'bulk_percentage_template' => __( '%percent%% complete', 'fastlayer' ),
-                'bulk_summary_template' => __( '%converted% converted, %failed% failed, %remaining% remaining.', 'fastlayer' ),
+                /* translators: %converted%: converted count; %failed%: failed count; %remaining%: remaining count. These are client-side JavaScript template tokens, not PHP sprintf placeholders. */
+                'bulk_summary_template' => __( '%converted% converted, %failed% failed, %remaining% remaining.', 'fastlayer' ), // phpcs:ignore WordPress.WP.I18n.UnorderedPlaceholdersText -- client-side JavaScript template tokens; reordering them as sprintf placeholders would break the JS substitution.
                 'bulk_refreshing' => __( 'Refreshing conversion stats...', 'fastlayer' ),
                 'webp_summary_loading' => __( 'Loading conversion summary...', 'fastlayer' ),
                 'webp_summary_error' => __( 'Unable to load current conversion summary.', 'fastlayer' ),
                 'webp_summary_updated' => __( 'Conversion summary updated.', 'fastlayer' ),
                 'webp_summary_coverage' => __( '%percent%% of eligible images already have WebP files.', 'fastlayer' ),
                 'webp_last_run_template' => __( 'Last run: %time%', 'fastlayer' ),
+                /* translators: %duration%: duration of the last WebP conversion run. */
                 'webp_last_duration_template' => __( 'Duration: %duration%', 'fastlayer' ),
+                /* translators: %status%: status of the last WebP conversion run. */
                 'webp_last_status_template' => __( 'Status: %status%', 'fastlayer' ),
                 'bulk_pause_text' => __( 'Pause Conversion', 'fastlayer' ),
                 'bulk_resume_text' => __( 'Resume Conversion', 'fastlayer' ),
@@ -1617,24 +1620,28 @@ class Admin {
                 'bulk_log_paused' => __( 'Conversion paused after the current batch.', 'fastlayer' ),
                 'bulk_log_resumed' => __( 'Resuming conversion from the remaining images.', 'fastlayer' ),
                 'bulk_log_batch_started' => __( 'Starting batch %page% (%processed% expected).', 'fastlayer' ),
-                'bulk_log_batch_completed' => __( 'Batch %page% completed: %processed% processed, %converted% converted, %failed% failed.', 'fastlayer' ),
+                /* translators: %page%: batch page number; %processed%: images processed; %converted%: images converted; %failed%: images that failed. These are client-side JavaScript template tokens, not PHP sprintf placeholders. */
+                'bulk_log_batch_completed' => __( 'Batch %page% completed: %processed% processed, %converted% converted, %failed% failed.', 'fastlayer' ), // phpcs:ignore WordPress.WP.I18n.UnorderedPlaceholdersText -- client-side JavaScript template tokens; reordering them as sprintf placeholders would break the JS substitution.
                 'bulk_batch_progress_template' => __( 'Batch %page% progress: %processed% / %total%', 'fastlayer' ),
-                'bulk_status_template' => __( 'Processing batch %page% of %count% — Converting image %current% of %total%', 'fastlayer' ),
+                /* translators: %page%: batch page number; %count%: total number of batches; %current%: current image number; %total%: total number of images. These are client-side JavaScript template tokens, not PHP sprintf placeholders. */
+                'bulk_status_template' => __( 'Processing batch %page% of %count% - Converting image %current% of %total%', 'fastlayer' ), // phpcs:ignore WordPress.WP.I18n.UnorderedPlaceholdersText -- client-side JavaScript template tokens; reordering them as sprintf placeholders would break the JS substitution.
+                /* translators: %eta%: estimated time remaining for the WebP conversion. */
                 'bulk_eta_template' => __( 'Estimated time remaining: %eta%', 'fastlayer' ),
                 'bulk_eta_unavailable' => __( 'ETA unavailable until conversion starts.', 'fastlayer' ),
                 'bulk_view_logs_text' => __( 'View Detailed Logs', 'fastlayer' ),
                 'bulk_hide_logs_text' => __( 'Hide Detailed Logs', 'fastlayer' ),
                 'db_cleanup_processing' => __( 'Cleaning...', 'fastlayer' ),
                 'db_cleanup_default' => __( 'Clean Now', 'fastlayer' ),
-                'db_cleanup_action' => 'wp_fastlayer_database_cleanup',
-                'db_cleanup_stats_action' => 'wp_fastlayer_database_stats',
-                'db_cleanup_nonce' => wp_create_nonce( 'wp_fastlayer_optimize_database_nonce' ),
+                'db_cleanup_action' => 'fastlayer_database_cleanup',
+                'db_cleanup_stats_action' => 'fastlayer_database_stats',
+                'db_cleanup_nonce' => wp_create_nonce( 'fastlayer_optimize_database_nonce' ),
                 'db_cleanup_modal_title' => __( 'Database cleanup in progress', 'fastlayer' ),
                 'db_cleanup_modal_starting' => __( 'Starting database cleanup...', 'fastlayer' ),
                 'db_cleanup_modal_running' => __( 'Removing selected records and optimizing tables. Please keep this tab open.', 'fastlayer' ),
                 'db_cleanup_modal_finalizing' => __( 'Refreshing database statistics...', 'fastlayer' ),
                 'db_cleanup_modal_success_title' => __( 'Database cleanup complete', 'fastlayer' ),
                 'db_cleanup_modal_error_title' => __( 'Database cleanup failed', 'fastlayer' ),
+                /* translators: %s: number of database rows removed. */
                 'db_cleanup_modal_rows_removed' => __( 'Records removed: %s', 'fastlayer' ),
                 'db_cleanup_modal_no_items' => __( 'No database cleanup action was selected, so nothing was removed.', 'fastlayer' ),
                 'db_cleanup_modal_stats_refreshed' => __( 'All cleanup counters now reflect fresh database queries.', 'fastlayer' ),
@@ -1643,8 +1650,8 @@ class Admin {
                 'db_cleanup_modal_result_header' => __( 'Cleanup results', 'fastlayer' ),
                 'db_cleanup_modal_continue' => __( 'Refreshing page...', 'fastlayer' ),
                 'db_cleanup_running' => __( 'Database cleanup already running', 'fastlayer' ),
-                'preload_status_action' => 'wp_fastlayer_preload_status',
-                'preload_status_nonce' => wp_create_nonce( 'wp_fastlayer_preload_nonce' ),
+                'preload_status_action' => 'fastlayer_preload_status',
+                'preload_status_nonce' => wp_create_nonce( 'fastlayer_preload_nonce' ),
                 'preload_status_queued' => __( 'Queued. Warming pages in the background...', 'fastlayer' ),
                 'preload_status_running' => __( 'Running. Warming pages in the background...', 'fastlayer' ),
                 'preload_status_completed' => __( 'Completed.', 'fastlayer' ),
@@ -1652,8 +1659,11 @@ class Admin {
                 'preload_status_failed' => __( 'Failed.', 'fastlayer' ),
                 'preload_status_never_run' => __( 'No preload job has been run yet.', 'fastlayer' ),
                 'preload_status_progress_template' => __( '%processed% of %total% pages processed', 'fastlayer' ),
+                /* translators: %succeeded%: number of pages warmed successfully. */
                 'preload_status_warmed_template' => __( '%succeeded% warmed', 'fastlayer' ),
+                /* translators: %failed%: number of pages that failed to warm. */
                 'preload_status_failed_template' => __( '%failed% failed', 'fastlayer' ),
+                /* translators: %url%: page URL; %reason%: reason the page could not be warmed. */
                 'preload_status_error_row_template' => __( '%url% (%reason%)', 'fastlayer' ),
                 'preload_status_errors_heading' => __( 'Pages that could not be warmed', 'fastlayer' ),
                 'copy_text' => __( 'Copy Example', 'fastlayer' ),
@@ -1675,7 +1685,7 @@ class Admin {
      * would report a warming job that had not warmed anything yet.
      */
     private function render_preload_result_notice() {
-        $result = isset( $_GET['preload'] ) ? sanitize_key( wp_unslash( $_GET['preload'] ) ) : '';
+        $result = isset( $_GET['preload'] ) ? sanitize_key( wp_unslash( $_GET['preload'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
         if ( '' === $result ) {
             return;
         }
@@ -1767,12 +1777,12 @@ class Admin {
 
     public function render_dashboard() {
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( 'WP FastLayer: render_dashboard called.' );
+            \fastlayer_debug_log( 'WP FastLayer: render_dashboard called.' );
         }
         $options = get_option( $this->option_name, array() );
         $cache_stats = $this->get_cache_stats();
-        $cache_notice = isset( $_GET['cache'] ) ? sanitize_text_field( wp_unslash( $_GET['cache'] ) ) : '';
-        $css_js_cache_notice = isset( $_GET['css_js_cache'] ) ? sanitize_text_field( wp_unslash( $_GET['css_js_cache'] ) ) : '';
+        $cache_notice = isset( $_GET['cache'] ) ? sanitize_text_field( wp_unslash( $_GET['cache'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
+        $css_js_cache_notice = isset( $_GET['css_js_cache'] ) ? sanitize_text_field( wp_unslash( $_GET['css_js_cache'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
         ?>
         <div class="wrap wpfl-wrap">
             <?php if ( 'cleared' === $cache_notice ) : ?>
@@ -1837,16 +1847,16 @@ class Admin {
                     <h2>Quick Actions</h2>
                     <div class="wpfl-action-buttons">
                         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wpfl-action-form">
-                            <input type="hidden" name="action" value="wp_fastlayer_clear_cache">
-                            <?php wp_nonce_field( 'wp_fastlayer_clear_cache_nonce' ); ?>
+                            <input type="hidden" name="action" value="fastlayer_clear_cache">
+                            <?php wp_nonce_field( 'fastlayer_clear_cache_nonce' ); ?>
                             <button type="submit" class="wpfl-btn wpfl-btn-danger">
                                 <span class="dashicons dashicons-trash"></span>
                                 Clear All Cache
                             </button>
                         </form>
                         <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wpfl-action-form">
-                            <input type="hidden" name="action" value="wp_fastlayer_manual_preload">
-                            <?php wp_nonce_field( 'wp_fastlayer_preload_nonce' ); ?>
+                            <input type="hidden" name="action" value="fastlayer_manual_preload">
+                            <?php wp_nonce_field( 'fastlayer_preload_nonce' ); ?>
                             <button type="submit" class="wpfl-btn wpfl-btn-secondary">
                                 <span class="dashicons dashicons-update"></span>
                                 Preload Cache
@@ -1973,10 +1983,10 @@ class Admin {
                 </form>
 
                 <?php
-                $debug_trace = get_transient( 'wp_fastlayer_cache_debug_trace' );
-                $debug_test = get_transient( 'wp_fastlayer_cache_debug_test_result' );
-                $cache_dir = WP_FASTLAYER_CACHE_DIR;
-                $cache_dir_writable = is_dir( $cache_dir ) && is_writable( $cache_dir );
+                $debug_trace = get_transient( 'fastlayer_cache_debug_trace' );
+                $debug_test = get_transient( 'fastlayer_cache_debug_test_result' );
+                $cache_dir = FASTLAYER_CACHE_DIR;
+                $cache_dir_writable = is_dir( $cache_dir ) && wp_is_writable( $cache_dir );
                 ?>
 
                 <div class="wpfl-section wpfl-debug-panel" style="padding-bottom:40px;">
@@ -2033,8 +2043,8 @@ class Admin {
                     </table>
 
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:20px 0;">
-                        <input type="hidden" name="action" value="wp_fastlayer_cache_debug_test">
-                        <?php wp_nonce_field( 'wp_fastlayer_cache_debug_test_nonce' ); ?>
+                        <input type="hidden" name="action" value="fastlayer_cache_debug_test">
+                        <?php wp_nonce_field( 'fastlayer_cache_debug_test_nonce' ); ?>
                         <button type="submit" class="wpfl-btn wpfl-btn-secondary">Run Direct Filesystem Debug Test</button>
                     </form>
                 </div>
@@ -2208,8 +2218,8 @@ class Admin {
                     <?php $this->render_save_bar(); ?>
                 </form>
                 <form id="wp-fastlayer-generate-critical-css-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-                    <input type="hidden" name="action" value="wp_fastlayer_generate_critical_css">
-                    <?php wp_nonce_field( 'wp_fastlayer_generate_critical_css_nonce' ); ?>
+                    <input type="hidden" name="action" value="fastlayer_generate_critical_css">
+                    <?php wp_nonce_field( 'fastlayer_generate_critical_css_nonce' ); ?>
                 </form>
             </div>
         </div>
@@ -2330,8 +2340,8 @@ class Admin {
     public function render_media_page() {
         $options = get_option( $this->option_name, array() );
         $bulk_webp_enabled = $this->is_bulk_webp_generation_enabled( $options );
-        $webp_bulk = isset( $_GET['webp_bulk'] ) ? sanitize_text_field( wp_unslash( $_GET['webp_bulk'] ) ) : '';
-        $webp_count = isset( $_GET['count'] ) ? absint( $_GET['count'] ) : 0;
+        $webp_bulk = isset( $_GET['webp_bulk'] ) ? sanitize_text_field( wp_unslash( $_GET['webp_bulk'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
+        $webp_count = isset( $_GET['count'] ) ? absint( $_GET['count'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
         $webp_summary = Webp::get_instance()->get_conversion_summary();
         ?>
         <div class="wrap wpfl-wrap">
@@ -2343,14 +2353,25 @@ class Admin {
                     <p><?php echo esc_html__( 'WebP conversion is currently unavailable on this server. Please enable GD with WebP support or install/configure Imagick with WebP support.', 'fastlayer' ); ?></p>
                     <p>
                         <?php echo esc_html__( 'Detected support details:', 'fastlayer' ); ?>
-                        <br><?php echo esc_html( sprintf( __( 'GD installed: %s, GD WebP support: %s, Imagick installed: %s, Imagick WebP support: %s.', 'fastlayer' ), $webp_support['gd_installed'], $webp_support['gd_webp'], $webp_support['imagick_installed'], $webp_support['imagick_webp'] ) ); ?>
+                        <br><?php echo esc_html( sprintf(
+                            /* translators: 1: GD library status, 2: GD WebP support status, 3: Imagick installed status, 4: Imagick WebP support status. */
+                            __( 'GD installed: %1$s, GD WebP support: %2$s, Imagick installed: %3$s, Imagick WebP support: %4$s.', 'fastlayer' ),
+                            $webp_support['gd_installed'],
+                            $webp_support['gd_webp'],
+                            $webp_support['imagick_installed'],
+                            $webp_support['imagick_webp']
+                        ) ); ?>
                     </p>
                 </div>
             <?php endif; ?>
 
             <?php if ( 'success' === $webp_bulk ) : ?>
                 <div class="notice notice-success wpfastlayer-notice is-dismissible">
-                    <p><?php echo esc_html__( 'WebP generation completed successfully.', 'fastlayer' ); ?> <?php echo esc_html( sprintf( __( '%d image(s) processed.', 'fastlayer' ), $webp_count ) ); ?></p>
+                    <p><?php echo esc_html__( 'WebP generation completed successfully.', 'fastlayer' ); ?> <?php echo esc_html( sprintf(
+                        /* translators: %d: number of images processed. */
+                        __( '%d image(s) processed.', 'fastlayer' ),
+                        $webp_count
+                    ) ); ?></p>
                 </div>
             <?php elseif ( 'unsupported' === $webp_bulk ) : ?>
                 <div class="notice notice-error wpfastlayer-notice is-dismissible">
@@ -2358,7 +2379,14 @@ class Admin {
                     <p><?php echo esc_html__( 'WebP conversion is not supported on this server. Please enable GD WebP or Imagick.', 'fastlayer' ); ?></p>
                     <p>
                         <?php echo esc_html__( 'Server WebP support details:', 'fastlayer' ); ?>
-                        <br><?php echo esc_html( sprintf( __( 'GD installed: %s, GD WebP support: %s, Imagick installed: %s, Imagick WebP support: %s.', 'fastlayer' ), $webp_details['gd_installed'], $webp_details['gd_webp'], $webp_details['imagick_installed'], $webp_details['imagick_webp'] ) ); ?>
+                        <br><?php echo esc_html( sprintf(
+                            /* translators: 1: GD library status, 2: GD WebP support status, 3: Imagick installed status, 4: Imagick WebP support status. */
+                            __( 'GD installed: %1$s, GD WebP support: %2$s, Imagick installed: %3$s, Imagick WebP support: %4$s.', 'fastlayer' ),
+                            $webp_details['gd_installed'],
+                            $webp_details['gd_webp'],
+                            $webp_details['imagick_installed'],
+                            $webp_details['imagick_webp']
+                        ) ); ?>
                     </p>
                 </div>
             <?php elseif ( 'error' === $webp_bulk ) : ?>
@@ -2461,7 +2489,7 @@ class Admin {
                             </label>
                             <p class="description">Log detected LCP element, preload URL, and attribute decisions with the [WP FastLayer LCP] prefix.</p>
                         </div>
-                        <?php $lcp_report = get_transient( 'wp_fastlayer_lcp_last_report' ); ?>
+                        <?php $lcp_report = get_transient( 'fastlayer_lcp_last_report' ); ?>
                         <?php if ( is_array( $lcp_report ) && ! empty( $lcp_report ) ) : ?>
                             <div class="wpfl-field">
                                 <strong><?php echo esc_html__( 'Smart LCP Last Detection Report', 'fastlayer' ); ?></strong>
@@ -2636,7 +2664,7 @@ class Admin {
         $imagekit_endpoint = isset( $options['imagekit_endpoint'] ) ? trim( (string) $options['imagekit_endpoint'] ) : '';
         $imagekit_enabled  = ! empty( $options['enable_imagekit_cdn'] );
         $max_oversize_ratio = isset( $options['imagekit_max_oversize_ratio'] ) ? (float) $options['imagekit_max_oversize_ratio'] : 1.5;
-        $image_debug_report = get_transient( 'wp_fastlayer_image_debug_report_payload' );
+        $image_debug_report = get_transient( 'fastlayer_image_debug_report_payload' );
         $imagekit_mode     = $this->get_imagekit_origin_path_mode( $options );
         $preview_original  = $this->get_imagekit_preview_original_url();
         $preview_rewritten = $this->build_imagekit_rewritten_url( $imagekit_endpoint, $preview_original, $options );
@@ -2655,16 +2683,16 @@ class Admin {
         }
 
         $test_url = wp_nonce_url(
-            admin_url( 'admin-post.php?action=wp_fastlayer_test_imagekit' ),
-            'wp_fastlayer_test_imagekit_nonce'
+            admin_url( 'admin-post.php?action=fastlayer_test_imagekit' ),
+            'fastlayer_test_imagekit_nonce'
         );
         $generate_debug_report_url = wp_nonce_url(
-            admin_url( 'admin-post.php?action=wp_fastlayer_generate_image_debug_report' ),
-            'wp_fastlayer_generate_image_debug_report_nonce'
+            admin_url( 'admin-post.php?action=fastlayer_generate_image_debug_report' ),
+            'fastlayer_generate_image_debug_report_nonce'
         );
         $download_debug_report_url = wp_nonce_url(
-            admin_url( 'admin-post.php?action=wp_fastlayer_download_image_debug_report' ),
-            'wp_fastlayer_download_image_debug_report_nonce'
+            admin_url( 'admin-post.php?action=fastlayer_download_image_debug_report' ),
+            'fastlayer_download_image_debug_report_nonce'
         );
         ?>
         <div class="wrap wpfl-wrap">
@@ -2983,7 +3011,7 @@ class Admin {
             return $baseurl . '/demo.jpg';
         }
 
-        return home_url( '/wp-content/uploads/demo.jpg' );
+        return content_url( 'uploads' ) . '/demo.jpg';
     }
 
     private function get_local_upload_attachment_url( $attachment_id ) {
@@ -3157,14 +3185,14 @@ class Admin {
         };
 
         $cleanup_notice = array();
-        $cleanup_notice_key = 'wp_fastlayer_db_cleanup_notice_' . get_current_user_id();
+        $cleanup_notice_key = 'fastlayer_db_cleanup_notice_' . get_current_user_id();
         $stored_cleanup_notice = get_transient( $cleanup_notice_key );
         if ( is_array( $stored_cleanup_notice ) ) {
             $cleanup_notice = $stored_cleanup_notice;
             delete_transient( $cleanup_notice_key );
         }
 
-        $db_optimized = isset( $_GET['db_optimized'] ) ? sanitize_text_field( wp_unslash( $_GET['db_optimized'] ) ) : '';
+        $db_optimized = isset( $_GET['db_optimized'] ) ? sanitize_text_field( wp_unslash( $_GET['db_optimized'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
         
         $cleanup_items = array(
             array(
@@ -3195,7 +3223,8 @@ class Admin {
                 'id' => 'db_clean_all_transients',
                 'label' => 'All Transients',
                 'count' => $cleanup_item_count( 'db_clean_all_transients' ),
-                'description' => __( 'Removable candidates only. Timeout rows: %timeout%, Active runtime: %active%, Expired timeout rows: %expired%, Runtime no-timeout rows: %no_timeout%, Orphan timeout rows: %orphans%', 'fastlayer' )
+                /* translators: %timeout%: timeout rows; %active%: active runtime rows; %expired%: expired timeout rows; %no_timeout%: runtime rows without a timeout; %orphans%: orphaned timeout rows. These are client-side JavaScript template tokens, not PHP sprintf placeholders. */
+                'description' => __( 'Removable candidates only. Timeout rows: %timeout%, Active runtime: %active%, Expired timeout rows: %expired%, Runtime no-timeout rows: %no_timeout%, Orphan timeout rows: %orphans%', 'fastlayer' ) // phpcs:ignore WordPress.WP.I18n.UnorderedPlaceholdersText -- client-side JavaScript template tokens; reordering them as sprintf placeholders would break the JS substitution.
             ),
             array(
                 'id' => 'db_clean_duplicated_postmeta',
@@ -3266,7 +3295,11 @@ class Admin {
                     <?php if ( ! empty( $cleanup_notice['success'] ) ) : ?>
                         <p><strong><?php echo esc_html__( 'Database cleanup completed successfully.', 'fastlayer' ); ?></strong></p>
                         <?php if ( isset( $cleanup_notice['rows_removed'] ) ) : ?>
-                            <p><?php echo esc_html( sprintf( __( 'Total rows removed: %d', 'fastlayer' ), absint( $cleanup_notice['rows_removed'] ) ) ); ?></p>
+                            <p><?php echo esc_html( sprintf(
+                                /* translators: %d: number of database rows removed. */
+                                __( 'Total rows removed: %d', 'fastlayer' ),
+                                absint( $cleanup_notice['rows_removed'] )
+                            ) ); ?></p>
                         <?php endif; ?>
                     <?php else : ?>
                         <?php if ( isset( $cleanup_notice['rows_removed'] ) && 0 === absint( $cleanup_notice['rows_removed'] ) ) : ?>
@@ -3415,10 +3448,10 @@ class Admin {
                     <?php $this->render_save_bar(); ?>
                 </form>
                     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wpfl-action-form wpfl-db-cleanup-form" id="wpfl-db-cleanup-form">
-                        <input type="hidden" name="action" value="wp_fastlayer_optimize_database">
+                        <input type="hidden" name="action" value="fastlayer_optimize_database">
                         <input type="hidden" name="redirect_page" value="wp-fastlayer-database">
-                        <?php if ( isset( $_GET['section'] ) ) : ?>
-                            <input type="hidden" name="redirect_section" value="<?php echo esc_attr( sanitize_key( wp_unslash( $_GET['section'] ) ) ); ?>">
+                        <?php if ( isset( $_GET['section'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only deep-link flag; no state changes. ?>
+                            <input type="hidden" name="redirect_section" value="<?php echo esc_attr( sanitize_key( wp_unslash( $_GET['section'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only deep-link flag; no state changes. ?>">
                         <?php endif; ?>
                         <?php
                         /*
@@ -3439,7 +3472,7 @@ class Admin {
                                 data-cleanup-key="<?php echo esc_attr( $item['id'] ); ?>"
                             >
                         <?php endforeach; ?>
-                        <?php wp_nonce_field( 'wp_fastlayer_optimize_database_nonce' ); ?>
+                        <?php wp_nonce_field( 'fastlayer_optimize_database_nonce' ); ?>
                         <button type="submit" class="wpfl-btn wpfl-btn-danger" id="wpfl-db-cleanup-submit">
                             <span class="dashicons dashicons-trash"></span>
                             <span class="wpfl-db-cleanup-btn-text"><?php echo esc_html__( 'Clean Now', 'fastlayer' ); ?></span>

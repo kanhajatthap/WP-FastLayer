@@ -1,5 +1,5 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -42,14 +42,14 @@ class Webp {
         if ( is_admin() ) {
             add_action( 'admin_notices', array( $this, 'print_upload_conversion_notice' ) );
             add_action( 'admin_notices', array( $this, 'print_nginx_webp_notice' ) );
-            add_action( 'wp_ajax_wp_fastlayer_dismiss_nginx_webp_notice', array( $this, 'ajax_dismiss_nginx_webp_notice' ) );
+            add_action( 'wp_ajax_fastlayer_dismiss_nginx_webp_notice', array( $this, 'ajax_dismiss_nginx_webp_notice' ) );
         }
     }
 
     public function register_responsive_image_sizes() {
-        add_image_size( 'wp_fastlayer_logo_150x50', 150, 50, true );
-        add_image_size( 'wp_fastlayer_logo_200x80', 200, 80, true );
-        add_image_size( 'wp_fastlayer_logo_300x120', 300, 120, true );
+        add_image_size( 'fastlayer_logo_150x50', 150, 50, true );
+        add_image_size( 'fastlayer_logo_200x80', 200, 80, true );
+        add_image_size( 'fastlayer_logo_300x120', 300, 120, true );
     }
 
     public function enforce_smart_thumbnail_crop( $sizes ) {
@@ -80,37 +80,37 @@ class Webp {
     }
 
     private function is_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_webp'] ) && '1' === $options['enable_webp'];
     }
 
     private function is_bulk_webp_generation_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return ! isset( $options['enable_bulk_webp_generation'] ) || '1' === (string) $options['enable_bulk_webp_generation'];
     }
 
     private function is_imagekit_cdn_active() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_imagekit_cdn'] )
             && '1' === (string) $options['enable_imagekit_cdn']
             && ! empty( $options['imagekit_endpoint'] );
     }
 
     private function is_image_delivery_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_image_delivery'] ) && '1' === $options['enable_image_delivery'];
     }
 
     private function should_bypass_local_webp() {
         if ( defined( 'LOCAL_WEBP_ENABLED' ) && ! LOCAL_WEBP_ENABLED ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] local_webp_bypass_active | reason=LOCAL_WEBP_ENABLED_false' );
+                \fastlayer_debug_log( '[WP FastLayer WebP] local_webp_bypass_active | reason=LOCAL_WEBP_ENABLED_false' );
             }
             return true;
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG && $this->is_imagekit_cdn_active() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] imagekit_compatibility_mode_active | local_webp_enabled=yes' );
+            \fastlayer_debug_log( '[WP FastLayer WebP] imagekit_compatibility_mode_active | local_webp_enabled=yes' );
         }
 
         return false;
@@ -125,21 +125,21 @@ class Webp {
             return $this->frontend_debug_enabled;
         }
 
-        if ( defined( 'WP_FASTLAYER_WEBP_DEBUG' ) ) {
-            $this->frontend_debug_enabled = (bool) WP_FASTLAYER_WEBP_DEBUG;
+        if ( defined( 'FASTLAYER_WEBP_DEBUG' ) ) {
+            $this->frontend_debug_enabled = (bool) FASTLAYER_WEBP_DEBUG;
             return $this->frontend_debug_enabled;
         }
 
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $this->frontend_debug_enabled = isset( $options['debug_webp_frontend'] ) && '1' === (string) $options['debug_webp_frontend'];
 
         return $this->frontend_debug_enabled;
     }
 
     private function get_frontend_debug_page_context() {
-        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+        $request_uri = ( isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
 
-        if ( empty( $request_uri ) ) {
+        if ( '' === $request_uri ) {
             return home_url( '/' );
         }
 
@@ -163,7 +163,7 @@ class Webp {
             $line .= ' | ' . wp_json_encode( $payload );
         }
 
-        \wp_fastlayer_debug_log( $line );
+        \fastlayer_debug_log( $line );
     }
 
     private function debug_log_lqip( $message, $context = array() ) {
@@ -177,7 +177,7 @@ class Webp {
             $line .= ' | ' . wp_json_encode( $payload );
         }
 
-        \wp_fastlayer_debug_log( $line );
+        \fastlayer_debug_log( $line );
     }
 
     private function start_frontend_debug_run( $content ) {
@@ -619,7 +619,7 @@ class Webp {
         if ( $target_width > 0 ) {
             $resolved = $this->find_best_size_for_width( $attachment_id, $target_width, $size );
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] responsive_variant_selected | attachment_id=' . absint( $attachment_id ) . ' | target_width=' . absint( $target_width ) . ' | selected_size=' . ( is_string( $resolved ) ? $resolved : wp_json_encode( $resolved ) ) );
+                \fastlayer_debug_log( '[WP FastLayer WebP] responsive_variant_selected | attachment_id=' . absint( $attachment_id ) . ' | target_width=' . absint( $target_width ) . ' | selected_size=' . ( is_string( $resolved ) ? $resolved : wp_json_encode( $resolved ) ) );
             }
             return $resolved;
         }
@@ -706,7 +706,7 @@ class Webp {
         if ( $target > 0 ) {
             $sizes = '(max-width: 768px) 100vw, ' . absint( $target ) . 'px';
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer Sizes] detected_container_width=' . absint( $target ) . ' generated_sizes=' . $sizes . ' | attachment=' . absint( $attachment_id ) );
+                \fastlayer_debug_log( '[WP FastLayer Sizes] detected_container_width=' . absint( $target ) . ' generated_sizes=' . $sizes . ' | attachment=' . absint( $attachment_id ) );
             }
             return $sizes;
         }
@@ -716,19 +716,19 @@ class Webp {
         if ( $target_attr > 0 ) {
             $sizes = '(max-width: 768px) 100vw, ' . absint( $target_attr ) . 'px';
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer Sizes] detected_container_width=' . absint( $target_attr ) . ' generated_sizes=' . $sizes . ' | attachment=' . absint( $attachment_id ) );
+                \fastlayer_debug_log( '[WP FastLayer Sizes] detected_container_width=' . absint( $target_attr ) . ' generated_sizes=' . $sizes . ' | attachment=' . absint( $attachment_id ) );
             }
             return $sizes;
         }
 
         // Conservative Elementor-specific fallback: many Elementor widgets render
-        // images at constrained widths inside columns — use a reasonable default
+        // images at constrained widths inside columns - use a reasonable default
         // rather than a full-viewport `100vw` which can trigger very large
         // downloads.
         if ( false !== stripos( (string) $html, 'elementor' ) ) {
             $sizes = '(max-width: 768px) 100vw, 555px';
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer Sizes] elementor_hint used generated_sizes=' . $sizes . ' | attachment=' . absint( $attachment_id ) );
+                \fastlayer_debug_log( '[WP FastLayer Sizes] elementor_hint used generated_sizes=' . $sizes . ' | attachment=' . absint( $attachment_id ) );
             }
             return $sizes;
         }
@@ -737,7 +737,7 @@ class Webp {
         // cannot infer a more precise layout width safely.
         $sizes = '(max-width: 768px) 100vw, 768px';
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer Sizes] generic_fallback_generated_sizes=' . $sizes . ' | original=' . $original . ' | attachment=' . absint( $attachment_id ) );
+            \fastlayer_debug_log( '[WP FastLayer Sizes] generic_fallback_generated_sizes=' . $sizes . ' | original=' . $original . ' | attachment=' . absint( $attachment_id ) );
         }
 
         return $sizes;
@@ -746,7 +746,7 @@ class Webp {
     /**
      * Extracts HTML attributes from a tag string into an associative array.
      * Returns an empty array on failure. This is intentionally conservative and
-     * does not attempt DOM parsing — only simple attribute extraction.
+     * does not attempt DOM parsing - only simple attribute extraction.
      */
     private function extract_attributes_from_html( $html ) {
         $attrs = array();
@@ -861,7 +861,7 @@ class Webp {
 
         $filtered_count = count( $filtered );
         if ( $filtered_count < $original_count && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer Srcset] candidate_pruning | target_width=' . absint( $target_width ) . ' | original_count=' . $original_count . ' | filtered_count=' . $filtered_count . ' | is_lcp=' . ( $is_lcp ? 'yes' : 'no' ) . ' | attachment=' . absint( $attachment_id ) );
+            \fastlayer_debug_log( '[WP FastLayer Srcset] candidate_pruning | target_width=' . absint( $target_width ) . ' | original_count=' . $original_count . ' | filtered_count=' . $filtered_count . ' | is_lcp=' . ( $is_lcp ? 'yes' : 'no' ) . ' | attachment=' . absint( $attachment_id ) );
         }
 
         // Rebuild srcset.
@@ -921,7 +921,7 @@ class Webp {
                 if ( preg_match( '/\/(\d+)(?:x\d+)?(?:\.webp)?(?:\?|$)/i', $original_src, $m ) ) {
                     $original_width = absint( $m[1] );
                 }
-                \wp_fastlayer_debug_log( '[WP FastLayer Srcset] fallback_src_optimized | target_width=' . absint( $target_width ) . ' | selected_width=' . $best['width'] . ' | original_width=' . $original_width . ' | is_lcp=' . ( $is_lcp ? 'yes' : 'no' ) . ' | attachment=' . absint( $attachment_id ) );
+                \fastlayer_debug_log( '[WP FastLayer Srcset] fallback_src_optimized | target_width=' . absint( $target_width ) . ' | selected_width=' . $best['width'] . ' | original_width=' . $original_width . ' | is_lcp=' . ( $is_lcp ? 'yes' : 'no' ) . ' | attachment=' . absint( $attachment_id ) );
             }
             return $best['url'];
         }
@@ -944,7 +944,7 @@ class Webp {
 
     public function generate_webp_images( $metadata, $attachment_id ) {
         if ( $this->should_bypass_local_webp() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] local_webp_bypassed | attachment_id=' . absint( $attachment_id ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] local_webp_bypassed | attachment_id=' . absint( $attachment_id ) );
             return $metadata;
         }
 
@@ -981,7 +981,7 @@ class Webp {
 
     public function generate_webp_on_upload( $attachment_id ) {
         if ( $this->should_bypass_local_webp() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] local_webp_bypassed | upload_attachment_id=' . absint( $attachment_id ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] local_webp_bypassed | upload_attachment_id=' . absint( $attachment_id ) );
             return;
         }
 
@@ -1027,10 +1027,11 @@ class Webp {
         }
 
         if ( $generated ) {
+            /* translators: %s: File name of the uploaded image, for example "photo.jpg". */
             $this->set_upload_conversion_notice( sprintf( __( 'FastLayer generated WebP files for uploaded image "%s".', 'fastlayer' ), basename( $file ) ) );
         }
 
-        if ( $generated && class_exists( 'WP_FastLayer\Page_Cache' ) ) {
+        if ( $generated && class_exists( 'FastLayer\Page_Cache' ) ) {
             Page_Cache::get_instance()->clear_all_cache();
         }
     }
@@ -1041,7 +1042,7 @@ class Webp {
             return;
         }
 
-        $transient = 'wp_fastlayer_webp_upload_notice_' . $user_id;
+        $transient = 'fastlayer_webp_upload_notice_' . $user_id;
         $notice = get_transient( $transient );
         if ( ! $notice || ! is_array( $notice ) || empty( $notice['message'] ) ) {
             return;
@@ -1062,7 +1063,7 @@ class Webp {
             return;
         }
 
-        $dismissed = get_user_meta( get_current_user_id(), 'wp_fastlayer_dismissed_nginx_webp_notice', true );
+        $dismissed = get_user_meta( get_current_user_id(), 'fastlayer_dismissed_nginx_webp_notice', true );
         if ( $dismissed ) {
             return;
         }
@@ -1147,20 +1148,20 @@ NGINX;
             '<pre style="background:#f1f1f1;padding:1em;overflow:auto;margin:1em 0;">' . esc_html( $nginx_server_config ) . '</pre>'
         );
 
-        echo '<div class="notice notice-info wpfastlayer-notice is-dismissible" data-notice="wp_fastlayer_nginx_webp">';
+        echo '<div class="notice notice-info wpfastlayer-notice is-dismissible" data-notice="fastlayer_nginx_webp">';
         echo '<p>' . wp_kses_post( $message ) . '</p>';
-        echo '<p><a href="#" class="button button-secondary wp_fastlayer_dismiss_nginx_notice" data-nonce="' . esc_attr( wp_create_nonce( 'wp_fastlayer_dismiss_nginx_webp_notice' ) ) . '">' . esc_html__( 'Dismiss', 'fastlayer' ) . '</a></p>';
+        echo '<p><a href="#" class="button button-secondary fastlayer_dismiss_nginx_notice" data-nonce="' . esc_attr( wp_create_nonce( 'fastlayer_dismiss_nginx_webp_notice' ) ) . '">' . esc_html__( 'Dismiss', 'fastlayer' ) . '</a></p>';
         echo '</div>';
     }
 
     public function ajax_dismiss_nginx_webp_notice() {
-        check_ajax_referer( 'wp_fastlayer_dismiss_nginx_webp_notice', 'nonce' );
+        check_ajax_referer( 'fastlayer_dismiss_nginx_webp_notice', 'nonce' );
 
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( __( 'Insufficient permissions.', 'fastlayer' ) );
         }
 
-        update_user_meta( get_current_user_id(), 'wp_fastlayer_dismissed_nginx_webp_notice', true );
+        update_user_meta( get_current_user_id(), 'fastlayer_dismissed_nginx_webp_notice', true );
         wp_send_json_success();
     }
 
@@ -1174,7 +1175,7 @@ NGINX;
             return;
         }
 
-        $transient = 'wp_fastlayer_webp_upload_notice_' . $user_id;
+        $transient = 'fastlayer_webp_upload_notice_' . $user_id;
         set_transient(
             $transient,
             array(
@@ -1187,12 +1188,12 @@ NGINX;
 
     public function bulk_generate_webp() {
         if ( $this->should_bypass_local_webp() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_bypassed' );
+            \fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_bypassed' );
             return 0;
         }
 
         if ( ! $this->is_bulk_webp_generation_enabled() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_disabled' );
+            \fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_disabled' );
             return 0;
         }
 
@@ -1219,7 +1220,7 @@ NGINX;
 
     public function bulk_generate_webp_batch( $page = 1, $batch_size = 20 ) {
         if ( $this->should_bypass_local_webp() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_batch_bypassed' );
+            \fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_batch_bypassed' );
             return array(
                 'processed' => 0,
                 'converted' => 0,
@@ -1232,7 +1233,7 @@ NGINX;
         }
 
         if ( ! $this->is_bulk_webp_generation_enabled() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_batch_disabled' );
+            \fastlayer_debug_log( '[WP FastLayer WebP] bulk_webp_batch_disabled' );
             return array(
                 'processed' => 0,
                 'converted' => 0,
@@ -1248,7 +1249,7 @@ NGINX;
         }
 
         if ( function_exists( 'set_time_limit' ) ) {
-            @set_time_limit( 0 );
+            @set_time_limit( 0 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- large bulk operation legitimately needs the default time limit lifted; guarded by function_exists( 'set_time_limit' ).
         }
 
         $page = max( 1, absint( $page ) );
@@ -1291,7 +1292,7 @@ NGINX;
         $remaining = max( 0, $total - $overall_processed );
         $percentage = $total > 0 ? min( 100, (int) round( ( $overall_processed / $total ) * 100 ) ) : 0;
 
-        if ( ! $has_more && $processed > 0 && class_exists( 'WP_FastLayer\Page_Cache' ) ) {
+        if ( ! $has_more && $processed > 0 && class_exists( 'FastLayer\Page_Cache' ) ) {
             Page_Cache::get_instance()->clear_all_cache();
         }
 
@@ -1312,15 +1313,16 @@ NGINX;
     private function get_webp_attachment_count() {
         global $wpdb;
 
-        $mime_types = $this->bulk_supported_mime_types;
+        $mime_types   = $this->bulk_supported_mime_types;
         $placeholders = implode( ',', array_fill( 0, count( $mime_types ), '%s' ) );
+        $sql          = "SELECT COUNT(ID) FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'inherit' AND post_mime_type IN ($placeholders)";
 
-        $sql_args = array_merge(
-            array( "SELECT COUNT(ID) FROM {$wpdb->posts} WHERE post_type = 'attachment' AND post_status = 'inherit' AND post_mime_type IN ($placeholders)" ),
-            $mime_types
-        );
-
-        return (int) $wpdb->get_var( call_user_func_array( array( $wpdb, 'prepare' ), $sql_args ) );
+        // $wpdb->prepare() accepts the placeholder values either as separate
+        // arguments or as a single array, so passing $mime_types directly is
+        // equivalent to the previous call_user_func_array() spread and lets
+        // static analysis see that the query is prepared.
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $sql is prepared on this line via $wpdb->prepare(); the sniff cannot see through the $sql variable and a one-off attachment count must not be cached.
+        return (int) $wpdb->get_var( $wpdb->prepare( $sql, $mime_types ) );
     }
 
     public function save_last_run_summary( $status, $duration ) {
@@ -1329,7 +1331,7 @@ NGINX;
         $completed_at = (int) current_time( 'timestamp' );
 
         update_option(
-            'wp_fastlayer_webp_last_run',
+            'fastlayer_webp_last_run',
             array(
                 'status'       => $status,
                 'duration'     => $duration,
@@ -1385,7 +1387,7 @@ NGINX;
             $summary['percentage'] = $summary['total'] > 0 ? (int) round( ( $summary['converted'] / $summary['total'] ) * 100 ) : 0;
         }
 
-        $last_run = get_option( 'wp_fastlayer_webp_last_run', array() );
+        $last_run = get_option( 'fastlayer_webp_last_run', array() );
         if ( ! empty( $last_run['completed_at'] ) ) {
             $summary['last_run_at'] = wp_date(
                 get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
@@ -1438,6 +1440,7 @@ NGINX;
         }
 
         if ( $seconds < MINUTE_IN_SECONDS ) {
+            /* translators: %s: number of seconds. */
             return sprintf( _n( '%s second', '%s seconds', $seconds, 'fastlayer' ), number_format_i18n( $seconds ) );
         }
 
@@ -1445,10 +1448,12 @@ NGINX;
             $minutes = floor( $seconds / MINUTE_IN_SECONDS );
             $remaining_seconds = $seconds % MINUTE_IN_SECONDS;
             if ( 0 === $remaining_seconds ) {
+                /* translators: %s: number of minutes. */
                 return sprintf( _n( '%s minute', '%s minutes', $minutes, 'fastlayer' ), number_format_i18n( $minutes ) );
             }
 
             return sprintf(
+                /* translators: 1: number of minutes, 2: number of seconds. */
                 __( '%1$s min %2$s sec', 'fastlayer' ),
                 number_format_i18n( $minutes ),
                 number_format_i18n( $remaining_seconds )
@@ -1459,10 +1464,12 @@ NGINX;
         $minutes = floor( ( $seconds % HOUR_IN_SECONDS ) / MINUTE_IN_SECONDS );
 
         if ( 0 === $minutes ) {
+            /* translators: %s: number of hours. */
             return sprintf( _n( '%s hour', '%s hours', $hours, 'fastlayer' ), number_format_i18n( $hours ) );
         }
 
         return sprintf(
+            /* translators: 1: number of hours, 2: number of minutes. */
             __( '%1$s hr %2$s min', 'fastlayer' ),
             number_format_i18n( $hours ),
             number_format_i18n( $minutes )
@@ -1493,7 +1500,7 @@ NGINX;
             return false;
         }
 
-        if ( ! is_writable( $target_dir ) ) {
+        if ( ! wp_is_writable( $target_dir ) ) {
             return false;
         }
 
@@ -1502,7 +1509,7 @@ NGINX;
         if ( function_exists( 'imagewebp' ) ) {
             $result = $this->generate_webp_via_gd( $path, $webp_path, $ext );
             if ( ! $result ) {
-                error_log( 'WP FastLayer WebP GD conversion failed for: ' . $path );
+                \fastlayer_debug_log( 'WP FastLayer WebP GD conversion failed for: ' . $path );
             }
             return $result;
         }
@@ -1510,7 +1517,7 @@ NGINX;
         if ( class_exists( 'Imagick' ) ) {
             $result = $this->generate_webp_via_imagick( $path, $webp_path );
             if ( ! $result ) {
-                error_log( 'WP FastLayer WebP Imagick conversion failed for: ' . $path );
+                \fastlayer_debug_log( 'WP FastLayer WebP Imagick conversion failed for: ' . $path );
             }
             return $result;
         }
@@ -1560,7 +1567,7 @@ NGINX;
             $image->destroy();
             return true;
         } catch ( \Exception $e ) {
-            error_log( 'WP FastLayer WebP conversion failed: ' . $e->getMessage() );
+            \fastlayer_debug_log( 'WP FastLayer WebP conversion failed: ' . $e->getMessage() );
             return false;
         }
     }
@@ -1583,7 +1590,7 @@ NGINX;
             return false;
         }
 
-        if ( ! is_writable( $target_dir ) ) {
+        if ( ! wp_is_writable( $target_dir ) ) {
             $this->debug_log_lqip( 'Placeholder generation failed (target directory not writable)', array( 'target_dir' => $target_dir, 'placeholder' => $lqip_path ) );
             return false;
         }
@@ -1675,7 +1682,7 @@ NGINX;
             $image->destroy();
             return true;
         } catch ( \Exception $e ) {
-            error_log( 'WP FastLayer LQIP conversion failed: ' . $e->getMessage() );
+            \fastlayer_debug_log( 'WP FastLayer LQIP conversion failed: ' . $e->getMessage() );
             return false;
         }
     }
@@ -1745,9 +1752,9 @@ NGINX;
             . 'picture[data-wp-fastlayer-lqip].wpfl-loaded::before{opacity:0;}'
             . 'picture[data-wp-fastlayer-lqip] img{position:relative;z-index:1;}';
 
-        wp_register_style( 'wp-fastlayer-lqip', false, array(), WP_FASTLAYER_VERSION );
-        wp_enqueue_style( 'wp-fastlayer-lqip' );
-        wp_add_inline_style( 'wp-fastlayer-lqip', $css );
+        wp_register_style( 'fastlayer-lqip', false, array(), FASTLAYER_VERSION );
+        wp_enqueue_style( 'fastlayer-lqip' );
+        wp_add_inline_style( 'fastlayer-lqip', $css );
 
         /*
          * The runtime stays inline on purpose. The equivalent file
@@ -1785,14 +1792,14 @@ NGINX;
 })();
 JS;
 
-        wp_register_script( 'wp-fastlayer-lqip', false, array(), WP_FASTLAYER_VERSION, array( 'in_footer' => true ) );
-        wp_enqueue_script( 'wp-fastlayer-lqip' );
-        wp_add_inline_script( 'wp-fastlayer-lqip', $js );
+        wp_register_script( 'fastlayer-lqip', false, array(), FASTLAYER_VERSION, array( 'in_footer' => true ) );
+        wp_enqueue_script( 'fastlayer-lqip' );
+        wp_add_inline_script( 'fastlayer-lqip', $js );
     }
 
     public function add_webp_srcset_to_image_attributes( $attr, $attachment, $size ) {
         if ( $this->should_bypass_local_webp() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] responsive_optimizer_bypassed | attachment=' . ( is_object( $attachment ) && ! empty( $attachment->ID ) ? absint( $attachment->ID ) : 0 ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] responsive_optimizer_bypassed | attachment=' . ( is_object( $attachment ) && ! empty( $attachment->ID ) ? absint( $attachment->ID ) : 0 ) );
             return $attr;
         }
 
@@ -1813,7 +1820,7 @@ JS;
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             $incoming_src = $attr['src'] ?? '';
-            \wp_fastlayer_debug_log( '[WP FastLayer Srcset] add_webp_srcset_to_image_attributes_entry | attachment=' . absint( $attachment_id ) . ' | incoming_src=' . substr( $incoming_src, -50 ) );
+            \fastlayer_debug_log( '[WP FastLayer Srcset] add_webp_srcset_to_image_attributes_entry | attachment=' . absint( $attachment_id ) . ' | incoming_src=' . substr( $incoming_src, -50 ) );
         }
 
         $this->ensure_attachment_subsizes( $attachment_id );
@@ -1868,7 +1875,7 @@ JS;
                         $attr['data-lazy-src'] = $optimized_src;
                     }
                     if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                        \wp_fastlayer_debug_log( '[WP FastLayer Srcset] fallback_src_updated | attachment=' . absint( $attachment_id ) . ' | target_width=' . absint( $effective_target ) );
+                        \fastlayer_debug_log( '[WP FastLayer Srcset] fallback_src_updated | attachment=' . absint( $attachment_id ) . ' | target_width=' . absint( $effective_target ) );
                     }
                 }
             }
@@ -1913,7 +1920,7 @@ JS;
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             $final_src = $attr['src'] ?? '';
-            \wp_fastlayer_debug_log( '[WP FastLayer Srcset] add_webp_srcset_to_image_attributes_exit | attachment=' . absint( $attachment_id ) . ' | final_src=' . substr( $final_src, -50 ) . ' | has_srcset=' . ( ! empty( $attr['srcset'] ) ? 'yes' : 'no' ) );
+            \fastlayer_debug_log( '[WP FastLayer Srcset] add_webp_srcset_to_image_attributes_exit | attachment=' . absint( $attachment_id ) . ' | final_src=' . substr( $final_src, -50 ) . ' | has_srcset=' . ( ! empty( $attr['srcset'] ) ? 'yes' : 'no' ) );
         }
 
         $this->debug_log_frontend(
@@ -1949,7 +1956,7 @@ JS;
     public function wrap_attachment_image_with_picture( $html, $attachment_id, $size, $icon, $attr ) {
         if ( $this->should_bypass_local_webp() || ! $this->is_enabled() || ! $this->is_image_delivery_enabled() || $icon || empty( $html ) || false !== stripos( $html, '<picture' ) || false !== stripos( $html, 'data-wp-fastlayer-picture=' ) ) {
             if ( $this->should_bypass_local_webp() ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] wrap_attachment_image_with_picture_bypassed | attachment_id=' . absint( $attachment_id ) );
+                \fastlayer_debug_log( '[WP FastLayer WebP] wrap_attachment_image_with_picture_bypassed | attachment_id=' . absint( $attachment_id ) );
             }
             return $html;
         }
@@ -1973,12 +1980,12 @@ JS;
                 $src = $image_data[0];
                 $html = $this->set_image_attribute( $html, 'src', $src );
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    \wp_fastlayer_debug_log( '[WP FastLayer Srcset] wrap_picture_fallback_src_filled | attachment=' . absint( $attachment_id ) . ' | src_was_empty=yes' );
+                    \fastlayer_debug_log( '[WP FastLayer Srcset] wrap_picture_fallback_src_filled | attachment=' . absint( $attachment_id ) . ' | src_was_empty=yes' );
                 }
             }
         } elseif ( ! empty( $src ) && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             // Log that we preserved the optimized src from HTML (set by add_webp_srcset_to_image_attributes).
-            \wp_fastlayer_debug_log( '[WP FastLayer Srcset] wrap_picture_src_preserved | attachment=' . absint( $attachment_id ) . ' | src=' . substr( $src, -40 ) );
+            \fastlayer_debug_log( '[WP FastLayer Srcset] wrap_picture_src_preserved | attachment=' . absint( $attachment_id ) . ' | src=' . substr( $src, -40 ) );
         }
 
         if ( empty( $srcset ) && $attachment_id ) {
@@ -2013,7 +2020,7 @@ JS;
 
         if ( empty( $webp_srcset ) && ! empty( $srcset ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] skipped_webp_source_creation | attachment=' . absint( $attachment_id ) . ' | srcset_count=' . count( array_filter( array_map( 'trim', explode( ',', $srcset ) ) ) ) );
+                \fastlayer_debug_log( '[WP FastLayer WebP] skipped_webp_source_creation | attachment=' . absint( $attachment_id ) . ' | srcset_count=' . count( array_filter( array_map( 'trim', explode( ',', $srcset ) ) ) ) );
             }
 
             $picture = '<picture data-wp-fastlayer-picture="1">' . $html . '</picture>';
@@ -2070,21 +2077,21 @@ JS;
             if ( '' !== trim( (string) $webp_srcset ) ) {
                 $candidates = count( array_filter( array_map( 'trim', explode( ',', (string) $webp_srcset ) ) ) );
             }
-            \wp_fastlayer_debug_log( '[WP FastLayer Active Source] builder=wrap_attachment_image_with_picture | attachment=' . absint( $attachment_id ) . ' | candidates=' . $candidates . ' | single_fallback=' . ( $candidates <= 1 ? 'yes' : 'no' ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) );
+            \fastlayer_debug_log( '[WP FastLayer Active Source] builder=wrap_attachment_image_with_picture | attachment=' . absint( $attachment_id ) . ' | candidates=' . $candidates . ' | single_fallback=' . ( $candidates <= 1 ? 'yes' : 'no' ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) );
         }
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             $candidates = 0;
             if ( '' !== trim( (string) $webp_srcset ) ) {
                 $candidates = count( array_filter( array_map( 'trim', explode( ',', (string) $webp_srcset ) ) ) );
             }
-            \wp_fastlayer_debug_log( '[WP FastLayer Active Source] builder=replace_image_tag_with_picture | attachment=' . absint( $attachment_id ) . ' | candidates=' . $candidates . ' | single_fallback=' . ( $candidates <= 1 ? 'yes' : 'no' ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) );
+            \fastlayer_debug_log( '[WP FastLayer Active Source] builder=replace_image_tag_with_picture | attachment=' . absint( $attachment_id ) . ' | candidates=' . $candidates . ' | single_fallback=' . ( $candidates <= 1 ? 'yes' : 'no' ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) );
         }
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             $candidates = 0;
             if ( '' !== trim( (string) $webp_srcset ) ) {
                 $candidates = count( array_filter( array_map( 'trim', explode( ',', (string) $webp_srcset ) ) ) );
             }
-            \wp_fastlayer_debug_log( '[WP FastLayer Active Source] builder=replace_data_src_image_tag_with_picture | attachment=' . absint( $attachment_id ) . ' | candidates=' . $candidates . ' | single_fallback=' . ( $candidates <= 1 ? 'yes' : 'no' ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) );
+            \fastlayer_debug_log( '[WP FastLayer Active Source] builder=replace_data_src_image_tag_with_picture | attachment=' . absint( $attachment_id ) . ' | candidates=' . $candidates . ' | single_fallback=' . ( $candidates <= 1 ? 'yes' : 'no' ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) );
         }
         // If we only have a single WebP URL but the original JPG srcset exists,
         // build a responsive WebP srcset inline from the JPG candidates.
@@ -2114,7 +2121,7 @@ JS;
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer Active Source] final_webp_srcset=' . substr( (string) $webp_srcset, 0, 200 ) );
+            \fastlayer_debug_log( '[WP FastLayer Active Source] final_webp_srcset=' . substr( (string) $webp_srcset, 0, 200 ) );
         }
 
         $source = '<source type="image/webp" srcset="' . esc_attr( $webp_srcset ) . '"';
@@ -2124,14 +2131,14 @@ JS;
         $source .= '>';
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] webp_source_output | attachment=' . absint( $attachment_id ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) . ' | sizes=' . substr( $sizes, 0, 200 ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] webp_source_output | attachment=' . absint( $attachment_id ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) . ' | sizes=' . substr( $sizes, 0, 200 ) );
         }
 
         $html = $this->set_image_attribute( $html, 'data-wp-fastlayer-optimized', '1' );
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             $final_src_in_html = $this->extract_attribute_value( $html, 'src' );
-            \wp_fastlayer_debug_log( '[WP FastLayer Srcset] wrap_picture_final_html | attachment=' . absint( $attachment_id ) . ' | final_src_in_html=' . substr( $final_src_in_html, -50 ) );
+            \fastlayer_debug_log( '[WP FastLayer Srcset] wrap_picture_final_html | attachment=' . absint( $attachment_id ) . ' | final_src_in_html=' . substr( $final_src_in_html, -50 ) );
         }
 
         $this->bump_frontend_debug_stat( 'converted_to_picture' );
@@ -2151,7 +2158,7 @@ JS;
     public function replace_content_images_with_webp( $content ) {
         if ( $this->should_bypass_local_webp() || ! $this->is_enabled() || ! $this->is_image_delivery_enabled() || is_admin() || empty( $content ) ) {
             if ( $this->should_bypass_local_webp() ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] content_webp_rewrite_bypassed' );
+                \fastlayer_debug_log( '[WP FastLayer WebP] content_webp_rewrite_bypassed' );
             }
             return $content;
         }
@@ -2162,7 +2169,7 @@ JS;
         $content = preg_replace_callback(
             '/<picture\b[^>]*>.*?<\/picture>/is',
             function ( $matches ) use ( &$placeholders ) {
-                $key = '__WP_FASTLAYER_PICTURE_PLACEHOLDER_' . count( $placeholders ) . '__';
+                $key = '__FASTLAYER_PICTURE_PLACEHOLDER_' . count( $placeholders ) . '__';
                 $placeholders[ $key ] = $matches[0];
                 $this->bump_frontend_debug_stat( 'skipped_already_optimized' );
                 return $key;
@@ -2283,7 +2290,7 @@ JS;
 
         if ( empty( $webp_srcset ) && ! empty( $srcset ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] skipped_webp_source_creation | attachment=' . absint( $attachment_id ) . ' | srcset_count=' . count( array_filter( array_map( 'trim', explode( ',', $srcset ) ) ) ) );
+                \fastlayer_debug_log( '[WP FastLayer WebP] skipped_webp_source_creation | attachment=' . absint( $attachment_id ) . ' | srcset_count=' . count( array_filter( array_map( 'trim', explode( ',', $srcset ) ) ) ) );
             }
 
             $img_tag = '<img ' . $attrs . 'src=' . $quote . esc_url( $src ) . $quote . $rest . '>';
@@ -2326,7 +2333,7 @@ JS;
         $source .= '>';
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] webp_source_output | attachment=' . absint( $attachment_id ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) . ' | sizes=' . substr( $sizes, 0, 200 ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] webp_source_output | attachment=' . absint( $attachment_id ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) . ' | sizes=' . substr( $sizes, 0, 200 ) );
         }
 
         $img_tag = '<img ' . $attrs . 'src=' . $quote . esc_url( $src ) . $quote . $rest . '>';
@@ -2426,7 +2433,7 @@ JS;
 
         if ( empty( $webp_srcset ) && ! empty( $srcset ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] skipped_webp_source_creation | attachment=' . absint( $attachment_id ) . ' | srcset_count=' . count( array_filter( array_map( 'trim', explode( ',', $srcset ) ) ) ) );
+                \fastlayer_debug_log( '[WP FastLayer WebP] skipped_webp_source_creation | attachment=' . absint( $attachment_id ) . ' | srcset_count=' . count( array_filter( array_map( 'trim', explode( ',', $srcset ) ) ) ) );
             }
 
             $img_tag = '<img ' . $attrs . ' ' . $src_attr . '=' . $quote . esc_url( $src ) . $quote . $rest . '>';
@@ -2463,7 +2470,7 @@ JS;
         $source .= '>';
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] webp_source_output | attachment=' . absint( $attachment_id ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) . ' | sizes=' . substr( $sizes, 0, 200 ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] webp_source_output | attachment=' . absint( $attachment_id ) . ' | srcset=' . substr( $webp_srcset, 0, 200 ) . ' | sizes=' . substr( $sizes, 0, 200 ) );
         }
 
         $img_tag = '<img ' . $attrs . ' ' . $src_attr . '=' . $quote . esc_url( $src ) . $quote . $rest . '>';
@@ -2491,7 +2498,7 @@ JS;
     public function cleanup_nested_picture_structures( $content ) {
         if ( $this->should_bypass_local_webp() || ! $this->is_enabled() || ! $this->is_image_delivery_enabled() || is_admin() || empty( $content ) ) {
             if ( $this->should_bypass_local_webp() ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer WebP] cleanup_nested_picture_structures_bypassed' );
+                \fastlayer_debug_log( '[WP FastLayer WebP] cleanup_nested_picture_structures_bypassed' );
             }
             return $content;
         }
@@ -2527,7 +2534,7 @@ JS;
 
     private function convert_attachment_to_webp( $attachment_id ) {
         if ( $this->should_bypass_local_webp() ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] convert_attachment_to_webp_bypassed | attachment_id=' . absint( $attachment_id ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] convert_attachment_to_webp_bypassed | attachment_id=' . absint( $attachment_id ) );
             return array(
                 'converted' => false,
             );
@@ -2581,7 +2588,7 @@ JS;
                 if ( ! empty( $fallback_srcset ) ) {
                     $sources = array_map( 'trim', explode( ',', (string) $fallback_srcset ) );
                     if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                        \wp_fastlayer_debug_log( '[WP FastLayer WebP] srcset_fallback_to_native | attachment=' . absint( $attachment_id ) . ' | candidate_count=' . count( $sources ) );
+                        \fastlayer_debug_log( '[WP FastLayer WebP] srcset_fallback_to_native | attachment=' . absint( $attachment_id ) . ' | candidate_count=' . count( $sources ) );
                     }
                 }
             }
@@ -2602,7 +2609,7 @@ JS;
 
             if ( ! $this->is_internal_url( $url ) ) {
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    \wp_fastlayer_debug_log( '[WP FastLayer WebP] skipped_external_candidate | url=' . esc_url_raw( $url ) );
+                    \fastlayer_debug_log( '[WP FastLayer WebP] skipped_external_candidate | url=' . esc_url_raw( $url ) );
                 }
                 continue;
             }
@@ -2610,7 +2617,7 @@ JS;
             $webp_url = $this->ensure_webp_for_url( $url );
             if ( ! $webp_url ) {
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    \wp_fastlayer_debug_log( '[WP FastLayer WebP] skipped_missing_webp_variant | url=' . esc_url_raw( $url ) );
+                    \fastlayer_debug_log( '[WP FastLayer WebP] skipped_missing_webp_variant | url=' . esc_url_raw( $url ) );
                 }
                 continue;
             }
@@ -2668,7 +2675,7 @@ JS;
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] webp_srcset_generated | input=' . count( $sources ) . ' | output=' . count( $webp_entries ) . ' | base_url=' . substr( $base_url, -60 ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] webp_srcset_generated | input=' . count( $sources ) . ' | output=' . count( $webp_entries ) . ' | base_url=' . substr( $base_url, -60 ) );
         }
 
         $this->debug_log_frontend(
@@ -2713,7 +2720,7 @@ JS;
             $webp_url = $this->ensure_webp_for_url( $candidate_url );
             if ( ! $webp_url ) {
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    \wp_fastlayer_debug_log( '[WP FastLayer WebP] missing_webp_variant | candidate=' . substr( $candidate_url, -120 ) );
+                    \fastlayer_debug_log( '[WP FastLayer WebP] missing_webp_variant | candidate=' . substr( $candidate_url, -120 ) );
                 }
                 continue;
             }
@@ -2751,7 +2758,7 @@ JS;
         }
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] build_webp_srcset_from_attachment | attachment=' . absint( $attachment_id ) . ' | candidates=' . count( $parts ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] build_webp_srcset_from_attachment | attachment=' . absint( $attachment_id ) . ' | candidates=' . count( $parts ) );
         }
 
         return implode( ', ', $parts );
@@ -2807,7 +2814,7 @@ JS;
 
         $webp_path = $this->get_webp_path( $path );
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer WebP] local_webp_detection | source_url=' . esc_url_raw( $url ) . ' | webp_exists=' . ( file_exists( $webp_path ) ? 'yes' : 'no' ) );
+            \fastlayer_debug_log( '[WP FastLayer WebP] local_webp_detection | source_url=' . esc_url_raw( $url ) . ' | webp_exists=' . ( file_exists( $webp_path ) ? 'yes' : 'no' ) );
         }
 
         if ( ! file_exists( $webp_path ) ) {
@@ -2849,41 +2856,41 @@ JS;
     }
 
     private function get_webp_quality() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $quality = isset( $options['webp_quality'] ) ? absint( $options['webp_quality'] ) : 80;
         return min( 100, max( 50, $quality ) );
     }
 
     private function is_progressive_image_loading_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_progressive_image_loading'] ) && '1' === (string) $options['enable_progressive_image_loading'];
     }
 
     private function is_lqip_placeholders_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_lqip_placeholders'] ) && '1' === (string) $options['enable_lqip_placeholders'];
     }
 
     private function get_lqip_quality() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $quality = isset( $options['lqip_quality'] ) ? absint( $options['lqip_quality'] ) : 25;
         return min( 50, max( 1, $quality ) );
     }
 
     private function get_lqip_width() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $width = isset( $options['lqip_width'] ) ? absint( $options['lqip_width'] ) : 40;
         return min( 80, max( 20, $width ) );
     }
 
     private function get_lqip_blur_intensity() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $blur = isset( $options['lqip_blur_intensity'] ) ? absint( $options['lqip_blur_intensity'] ) : 20;
         return min( 50, max( 0, $blur ) );
     }
 
     private function get_lqip_fade_duration() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $duration = isset( $options['lqip_fade_duration'] ) ? absint( $options['lqip_fade_duration'] ) : 250;
         return min( 1000, max( 0, $duration ) );
     }
@@ -2969,7 +2976,7 @@ JS;
             return true;
         }
 
-        $server_software = isset( $_SERVER['SERVER_SOFTWARE'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) ) : '';
+        $server_software = ( isset( $_SERVER['SERVER_SOFTWARE'] ) && is_string( $_SERVER['SERVER_SOFTWARE'] ) ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) ) : '';
         if ( '' !== $server_software && ( false !== strpos( $server_software, 'apache' ) || false !== strpos( $server_software, 'litespeed' ) ) ) {
             return true;
         }
@@ -2982,11 +2989,11 @@ JS;
         if ( ! file_exists( $htaccess_file ) ) {
             // Not a write failure: there is no .htaccess to extend on this
             // server, so it is only noted rather than reported as an error.
-            \wp_fastlayer_debug_log( 'WP FastLayer WebP: no .htaccess file was found, so the WebP rewrite rules were not installed.' );
+            \fastlayer_debug_log( 'WP FastLayer WebP: no .htaccess file was found, so the WebP rewrite rules were not installed.' );
             return;
         }
 
-        if ( ! is_writable( $htaccess_file ) ) {
+        if ( ! wp_is_writable( $htaccess_file ) ) {
             $this->report_htaccess_failure( 'the WebP rewrite rules could not be installed because ' . $htaccess_file . ' is not writable.' );
             return;
         }
@@ -3029,7 +3036,7 @@ JS;
             return;
         }
 
-        if ( ! is_writable( $htaccess_file ) ) {
+        if ( ! wp_is_writable( $htaccess_file ) ) {
             $this->report_htaccess_failure( 'the WebP rewrite rules could not be removed because ' . $htaccess_file . ' is not writable. They are still active.' );
             return;
         }
@@ -3043,10 +3050,10 @@ JS;
      * Reports a root .htaccess failure through Bootstrap so it reaches the admin.
      */
     private function report_htaccess_failure( $message ) {
-        \wp_fastlayer_debug_log( 'WP FastLayer WebP: .htaccess write failure: ' . $message );
+        \fastlayer_debug_log( 'WP FastLayer WebP: .htaccess write failure: ' . $message );
 
-        if ( class_exists( 'WP_FastLayer\\Bootstrap' ) ) {
-            \WP_FastLayer\Bootstrap::record_write_failure( '.htaccess', $message );
+        if ( class_exists( 'FastLayer\\Bootstrap' ) ) {
+            \FastLayer\Bootstrap::record_write_failure( '.htaccess', $message );
         }
     }
 
@@ -3165,7 +3172,7 @@ JS;
             return false;
         }
 
-        $request_path = wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH );
+        $request_path = wp_parse_url( esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ), PHP_URL_PATH );
         if ( ! is_string( $request_path ) || '' === $request_path ) {
             return false;
         }
@@ -3268,7 +3275,7 @@ JS;
     private function send_webp_file( $file ) {
         $file_size   = filesize( $file );
         $file_time   = filemtime( $file );
-        $method      = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
+        $method      = ( isset( $_SERVER['REQUEST_METHOD'] ) && is_string( $_SERVER['REQUEST_METHOD'] ) ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
         $last_modified = false !== $file_time ? gmdate( 'D, d M Y H:i:s', $file_time ) . ' GMT' : '';
         $etag        = '"' . md5( 'fastlayer-webp|' . $file . '|' . $file_size . '|' . $file_time ) . '"';
 
@@ -3313,6 +3320,7 @@ JS;
             fastcgi_finish_request();
         }
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- WP_Filesystem cannot stream; get_contents() would load the whole image into memory. readfile() streams the verified WebP bytes and the request ends here.
         readfile( $file );
         exit;
     }
@@ -3323,15 +3331,15 @@ JS;
      * @return bool
      */
     private function request_is_not_modified( $etag, $file_time ) {
-        if ( isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) {
+        if ( isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) && is_string( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) {
             $if_none_match = trim( sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) );
             if ( '' !== $if_none_match && ( '*' === $if_none_match || false !== strpos( $if_none_match, $etag ) ) ) {
                 return true;
             }
         }
 
-        if ( false !== $file_time && isset( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ) {
-            $since = strtotime( (string) wp_unslash( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) );
+        if ( false !== $file_time && isset( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) && is_string( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ) {
+            $since = strtotime( sanitize_text_field( wp_unslash( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ) );
             if ( false !== $since && $file_time <= $since ) {
                 return true;
             }

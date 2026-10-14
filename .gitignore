@@ -1,0 +1,45 @@
+# FastLayer — files that must never be committed
+#
+# This repository is the WordPress plugin source only. Generated/cache files
+# live in wp-content/uploads/wp-fastlayer-* and wp-content/cache/wp-fastlayer/
+# and are never part of the plugin source, so they are ignored here.
+
+# --- Editor / OS artifacts ---
+.vscode/
+.idea/
+*.sublime-*
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.swp
+*.swo
+
+# --- Dependency / build directories (no build step ships in this repo) ---
+node_modules/
+vendor/
+composer.lock
+
+# --- Logs, backups, temp and staged files ---
+logs/
+*.log
+*.bak
+*.orig
+*.rej
+*.tmp
+*.temp
+.fastlayer-staged
+performance.log
+
+# --- Local WordPress configuration and database dumps ---
+wp-config.php
+wp-config-*.php
+wp-config-*.php.bak
+*.sql
+*.sql.gz
+*.sqlite
+*.sqlite3
+
+# --- Locally generated review / Plugin Check exports ---
+pcp-*.csv
+*-plugin-check*.csv

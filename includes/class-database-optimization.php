@@ -1,5 +1,5 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class Database_Optimization {
@@ -8,8 +8,8 @@ class Database_Optimization {
     const SITE_TRANSIENT_NAME_PREFIX = '_site_transient_';
 
     private static $instance = null;
-    private $notice_transient_prefix = 'wp_fastlayer_db_cleanup_notice_';
-    private $lock_option_prefix = 'wp_fastlayer_db_cleanup_lock_';
+    private $notice_transient_prefix = 'fastlayer_db_cleanup_notice_';
+    private $lock_option_prefix = 'fastlayer_db_cleanup_lock_';
 
     public static function get_instance() {
         if ( null === self::$instance ) self::$instance = new self();
@@ -17,14 +17,14 @@ class Database_Optimization {
     }
 
     private function __construct() {
-        add_action( 'admin_post_wp_fastlayer_optimize_database', array( $this, 'optimize_database' ) );
-        add_action( 'wp_ajax_wp_fastlayer_database_cleanup', array( $this, 'ajax_cleanup_database' ) );
-        add_action( 'wp_ajax_wp_fastlayer_database_stats', array( $this, 'ajax_database_stats' ) );
+        add_action( 'admin_post_fastlayer_optimize_database', array( $this, 'optimize_database' ) );
+        add_action( 'wp_ajax_fastlayer_database_cleanup', array( $this, 'ajax_cleanup_database' ) );
+        add_action( 'wp_ajax_fastlayer_database_stats', array( $this, 'ajax_database_stats' ) );
         add_action( 'shutdown', array( $this, 'release_cleanup_lock' ) );
     }
 
     public function optimize_database() {
-        check_admin_referer( 'wp_fastlayer_optimize_database_nonce' );
+        check_admin_referer( 'fastlayer_optimize_database_nonce' );
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die();
         }
@@ -156,7 +156,7 @@ class Database_Optimization {
 
         $nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
 
-        if ( ! wp_verify_nonce( $nonce, 'wp_fastlayer_optimize_database_nonce' ) ) {
+        if ( ! wp_verify_nonce( $nonce, 'fastlayer_optimize_database_nonce' ) ) {
             wp_send_json_error( array(
                 'message' => __( 'Security check failed. Please reload the page and try again.', 'fastlayer' ),
             ), 403 );
@@ -243,7 +243,7 @@ class Database_Optimization {
 
     private function run_optimization( $selected_cleanup = array() ) {
         global $wpdb;
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         $result = array(
             'success' => true,
@@ -364,6 +364,7 @@ class Database_Optimization {
 
             if ( ! method_exists( $this, $config['callback'] ) ) {
                 $result['success'] = false;
+                /* translators: %s: database cleanup action key. */
                 $result['errors'][] = sprintf( __( 'Cleanup callback not found for %s.', 'fastlayer' ), $action_key );
                 $this->log_cleanup( 'Missing cleanup callback: ' . $config['callback'], 'error' );
                 continue;
@@ -405,6 +406,7 @@ class Database_Optimization {
                     $diagnostic['notes'][] = $action_result['error'];
                     $this->log_cleanup( $config['label'] . ' failed. Error: ' . $action_result['error'], 'error' );
                 } else {
+                    /* translators: %s: database cleanup action label. */
                     $result['errors'][] = sprintf( __( 'Cleanup failed for %s.', 'fastlayer' ), $config['label'] );
                     $this->log_cleanup( $config['label'] . ' failed without an explicit SQL error.', 'error' );
                 }
@@ -430,8 +432,10 @@ class Database_Optimization {
 
                 if ( $before_count > 0 && 0 === $verified_removed ) {
                     $result['success'] = false;
+                    /* translators: 1: database cleanup action label, 2: record count before cleanup. */
                     $result['errors'][] = sprintf( __( '%1$s did not remove any rows. Records before cleanup: %2$d.', 'fastlayer' ), $config['label'], $before_count );
-                    $diagnostic['notes'][] = sprintf( __( 'Validation failed. Records before cleanup: %d, after cleanup: %d.', 'fastlayer' ), $before_count, $after_count );
+                    /* translators: 1: record count before cleanup, 2: record count after cleanup. */
+                    $diagnostic['notes'][] = sprintf( __( 'Validation failed. Records before cleanup: %1$d, after cleanup: %2$d.', 'fastlayer' ), $before_count, $after_count );
                     $diagnostic['validation'] = 'failed';
                     $this->log_cleanup( $config['label'] . ' validation failed. Existing rows were not removed.', 'warning' );
                 } else {
@@ -504,7 +508,7 @@ class Database_Optimization {
     private function optimize_all_tables() {
         global $wpdb;
 
-        $tables = $wpdb->get_results( 'SHOW TABLES', ARRAY_N );
+        $tables = $wpdb->get_results( 'SHOW TABLES', ARRAY_N ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- live schema/optimization statement with no WordPress API equivalent; must not be cached.
         if ( empty( $tables ) ) {
             return array(
                 'success' => true,
@@ -512,18 +516,48 @@ class Database_Optimization {
             );
         }
 
-        $optimized_tables = 0;
-        $errors = array();
-
+        // Build the allowlist of real table names exactly as the database
+        // reported them. Only values collected here (never a request value) are
+        // passed to OPTIMIZE TABLE, so the identifier cannot be injected.
+        $available_tables = array();
         foreach ( $tables as $table ) {
-            $table_name = isset( $table[0] ) ? $table[0] : '';
-            if ( '' === $table_name ) {
+            $table_name = isset( $table[0] ) ? (string) $table[0] : '';
+
+            // Reject empty names and names containing a NUL byte, which cannot
+            // identify a real MySQL table.
+            if ( '' === $table_name || false !== strpos( $table_name, "\0" ) ) {
                 continue;
             }
 
-            $result = $wpdb->query( 'OPTIMIZE TABLE `' . sanitize_key( $table_name ) . '`' );
+            $available_tables[] = $table_name;
+        }
+
+        // WordPress 6.2 added the %i identifier placeholder to $wpdb->prepare().
+        // The plugin still supports WordPress 6.0, so fall back to manual
+        // identifier quoting on older versions.
+        $supports_identifier_placeholder = $wpdb->has_cap( 'identifier_placeholders' );
+
+        $optimized_tables = 0;
+        $errors           = array();
+
+        foreach ( $available_tables as $table_name ) {
+            if ( $supports_identifier_placeholder ) {
+                // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnsupportedIdentifierPlaceholder, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- The %i identifier placeholder is only reached on WordPress 6.2+, which is exactly what $supports_identifier_placeholder checks; WordPress 6.0-6.1 take the quote_identifier() branch below. The schema statement has no WordPress API equivalent and must not be cached.
+                $result = $wpdb->query( $wpdb->prepare( 'OPTIMIZE TABLE %i', $table_name ) );
+            } else {
+                // WordPress < 6.2 has no %i placeholder. $table_name is never a
+                // request value: it comes only from the SHOW TABLES allowlist
+                // built above, and self::quote_identifier() backtick-escapes it.
+                // A %s placeholder cannot be used here because prepare() would
+                // quote the identifier as a string literal and break the SQL,
+                // so this pre-6.2 fallback is deliberately not prepared.
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- validated, backtick-quoted SHOW TABLES identifier, not a value; the schema statement has no WordPress API equivalent and must not be cached.
+                $result = $wpdb->query( 'OPTIMIZE TABLE ' . self::quote_identifier( $table_name ) );
+            }
+
             if ( false === $result ) {
-                $errors[] = sprintf( __( 'Failed to optimize table %s: %s', 'fastlayer' ), $table_name, $wpdb->last_error );
+                /* translators: 1: database table name, 2: MySQL error message. */
+                $errors[] = sprintf( __( 'Failed to optimize table %1$s: %2$s', 'fastlayer' ), $table_name, $wpdb->last_error );
                 continue;
             }
 
@@ -544,11 +578,27 @@ class Database_Optimization {
         );
     }
 
+    /**
+     * Quotes a MySQL identifier (table name) for use in a SQL statement.
+     *
+     * Used only on WordPress < 6.2, where $wpdb->prepare() does not understand
+     * the %i identifier placeholder. The identifier is wrapped in backticks and
+     * any embedded backtick is doubled, which is MySQL's documented escaping for
+     * a quoted identifier. Callers must only pass names that came from
+     * SHOW TABLES, never a request-supplied value.
+     *
+     * @param string $identifier Validated identifier, case preserved.
+     * @return string Backtick-quoted identifier.
+     */
+    private static function quote_identifier( $identifier ) {
+        return '`' . str_replace( '`', '``', (string) $identifier ) . '`';
+    }
+
     private function get_selected_cleanup_items_from_request() {
         $raw = array();
 
-        if ( ! empty( $_REQUEST['cleanup_items'] ) && is_array( $_REQUEST['cleanup_items'] ) ) {
-            $raw = wp_unslash( $_REQUEST['cleanup_items'] );
+        if ( ! empty( $_REQUEST['cleanup_items'] ) && is_array( $_REQUEST['cleanup_items'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only request classification; no state changes.
+            $raw = wp_unslash( $_REQUEST['cleanup_items'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- request-parsing helper; the caller verifies its nonce and the values are matched against a fixed allowlist below.
         }
 
         $known_keys = array_keys( $this->get_cleanup_action_map() );
@@ -598,12 +648,12 @@ class Database_Optimization {
     }
 
     private function log_cleanup( $message, $type = 'info' ) {
-        if ( class_exists( 'WP_FastLayer\\Logger' ) ) {
+        if ( class_exists( 'FastLayer\\Logger' ) ) {
             Bootstrap::get_instance()->log( '[DB Cleanup] ' . $message, $type );
             return;
         }
 
-        error_log( 'WP FastLayer [DB Cleanup] [' . strtoupper( $type ) . '] ' . $message );
+        \fastlayer_debug_log( 'WP FastLayer [DB Cleanup] [' . strtoupper( $type ) . '] ' . $message );
     }
 
     private function log_execution_context() {
@@ -701,7 +751,7 @@ class Database_Optimization {
     public function get_database_size() {
         global $wpdb;
         
-        $tables = $wpdb->get_results( "SHOW TABLE STATUS", ARRAY_A );
+        $tables = $wpdb->get_results( "SHOW TABLE STATUS", ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- live schema/optimization statement with no WordPress API equivalent; must not be cached.
         $total_size = 0;
         
         foreach ( $tables as $table ) {
@@ -713,28 +763,28 @@ class Database_Optimization {
 
     public function get_table_count() {
         global $wpdb;
-        $tables = $wpdb->get_results( "SHOW TABLES", ARRAY_N );
+        $tables = $wpdb->get_results( "SHOW TABLES", ARRAY_N ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- live schema/optimization statement with no WordPress API equivalent; must not be cached.
         return count( $tables );
     }
 
     public function get_auto_drafts_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'auto-draft'" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'auto-draft'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_post_revisions_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'revision'" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'revision'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_trashed_posts_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'trash'" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'trash'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_spam_comments_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = 'spam'" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->comments} WHERE comment_approved = 'spam'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_all_transients_count() {
@@ -759,6 +809,7 @@ class Database_Optimization {
             WHERE o.option_name LIKE '\\_transient\\_%' OR o.option_name LIKE '\\_site\\_transient\\_%'
         ";
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $sql is a static aggregate query built only from the trusted $wpdb->options table name; it contains no request-supplied values and the one-off maintenance result must not be cached.
         $aggregates = $wpdb->get_row( $sql, ARRAY_A );
         if ( ! is_array( $aggregates ) ) {
             $aggregates = array();
@@ -769,7 +820,7 @@ class Database_Optimization {
         $expired_timeout_rows = isset( $aggregates['expired_timeout_rows'] ) ? (int) $aggregates['expired_timeout_rows'] : 0;
         $active_timeout_rows = isset( $aggregates['active_timeout_rows'] ) ? (int) $aggregates['active_timeout_rows'] : 0;
 
-        $orphan_timeout_rows = (int) $wpdb->get_var(
+        $orphan_timeout_rows = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
             "SELECT SQL_NO_CACHE COUNT(*)
              FROM {$wpdb->options} t
              LEFT JOIN {$wpdb->options} v
@@ -781,7 +832,7 @@ class Database_Optimization {
                AND v.option_id IS NULL"
         );
 
-        $runtime_no_timeout_rows = (int) $wpdb->get_var(
+        $runtime_no_timeout_rows = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
             "SELECT SQL_NO_CACHE COUNT(*)
              FROM {$wpdb->options} v
              LEFT JOIN {$wpdb->options} t
@@ -806,7 +857,7 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
          * both expired and orphaned is counted once, and so that an active
          * (not yet expired) orphan timeout row is never reported as removable.
          */
-        $removable_candidates = (int) $wpdb->get_var(
+        $removable_candidates = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
             "SELECT SQL_NO_CACHE COUNT(*)
              FROM {$wpdb->options} t
              LEFT JOIN {$wpdb->options} v
@@ -832,52 +883,52 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
 
     public function get_duplicated_postmeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} pm1 INNER JOIN {$wpdb->postmeta} pm2 ON pm1.meta_id > pm2.meta_id AND pm1.post_id = pm2.post_id AND pm1.meta_key = pm2.meta_key AND pm1.meta_value <=> pm2.meta_value" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} pm1 INNER JOIN {$wpdb->postmeta} pm2 ON pm1.meta_id > pm2.meta_id AND pm1.post_id = pm2.post_id AND pm1.meta_key = pm2.meta_key AND pm1.meta_value <=> pm2.meta_value" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_duplicated_commentmeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->commentmeta} cm1 INNER JOIN {$wpdb->commentmeta} cm2 ON cm1.meta_id > cm2.meta_id AND cm1.comment_id = cm2.comment_id AND cm1.meta_key = cm2.meta_key AND cm1.meta_value <=> cm2.meta_value" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->commentmeta} cm1 INNER JOIN {$wpdb->commentmeta} cm2 ON cm1.meta_id > cm2.meta_id AND cm1.comment_id = cm2.comment_id AND cm1.meta_key = cm2.meta_key AND cm1.meta_value <=> cm2.meta_value" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_duplicated_usermeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->usermeta} um1 INNER JOIN {$wpdb->usermeta} um2 ON um1.umeta_id > um2.umeta_id AND um1.user_id = um2.user_id AND um1.meta_key = um2.meta_key AND um1.meta_value <=> um2.meta_value" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->usermeta} um1 INNER JOIN {$wpdb->usermeta} um2 ON um1.umeta_id > um2.umeta_id AND um1.user_id = um2.user_id AND um1.meta_key = um2.meta_key AND um1.meta_value <=> um2.meta_value" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_duplicated_termmeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->termmeta} tm1 INNER JOIN {$wpdb->termmeta} tm2 ON tm1.meta_id > tm2.meta_id AND tm1.term_id = tm2.term_id AND tm1.meta_key = tm2.meta_key AND tm1.meta_value <=> tm2.meta_value" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->termmeta} tm1 INNER JOIN {$wpdb->termmeta} tm2 ON tm1.meta_id > tm2.meta_id AND tm1.term_id = tm2.term_id AND tm1.meta_key = tm2.meta_key AND tm1.meta_value <=> tm2.meta_value" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_expired_transients_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->options} WHERE (option_name LIKE '\\_transient\\_timeout\\_%' OR option_name LIKE '\\_site\\_transient\\_timeout\\_%') AND CAST(option_value AS UNSIGNED) < UNIX_TIMESTAMP()" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->options} WHERE (option_name LIKE '\\_transient\\_timeout\\_%' OR option_name LIKE '\\_site\\_transient\\_timeout\\_%') AND CAST(option_value AS UNSIGNED) < UNIX_TIMESTAMP()" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_oembed_cache_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key LIKE '\\_oembed\\_%'" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key LIKE '\\_oembed\\_%'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_orphaned_postmeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} pm LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID WHERE p.ID IS NULL" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} pm LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID WHERE p.ID IS NULL" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_orphaned_usermeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->usermeta} um LEFT JOIN {$wpdb->users} u ON um.user_id = u.ID WHERE u.ID IS NULL" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->usermeta} um LEFT JOIN {$wpdb->users} u ON um.user_id = u.ID WHERE u.ID IS NULL" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_orphaned_termmeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->termmeta} tm LEFT JOIN {$wpdb->terms} t ON tm.term_id = t.term_id WHERE t.term_id IS NULL" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->termmeta} tm LEFT JOIN {$wpdb->terms} t ON tm.term_id = t.term_id WHERE t.term_id IS NULL" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function get_orphaned_commentmeta_count() {
         global $wpdb;
-        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->commentmeta} cm LEFT JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID WHERE c.comment_ID IS NULL" );
+        return $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->commentmeta} cm LEFT JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID WHERE c.comment_ID IS NULL" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
     }
 
     public function clean_auto_drafts() {
@@ -889,7 +940,7 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
         global $wpdb;
         $operation = __( 'Post revisions cleanup', 'fastlayer' );
         $this->log_cleanup( $operation . ' SQL: SELECT ID FROM ' . $wpdb->posts . " WHERE post_type = 'revision'", 'debug' );
-        $revision_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'revision'" );
+        $revision_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'revision'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
         $hook_snapshot = $this->get_deletion_hooks_snapshot();
         $this->log_cleanup( $operation . ' hook snapshot: ' . wp_json_encode( $hook_snapshot ), 'debug' );
 
@@ -951,7 +1002,7 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
         global $wpdb;
         $operation = __( 'Trashed posts cleanup', 'fastlayer' );
         $this->log_cleanup( $operation . ' SQL: SELECT ID FROM ' . $wpdb->posts . " WHERE post_status = 'trash'", 'debug' );
-        $trashed_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} WHERE post_status = 'trash'" );
+        $trashed_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} WHERE post_status = 'trash'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off maintenance aggregate over core tables; WordPress has no API for it and the result must not be cached.
         $hook_snapshot = $this->get_deletion_hooks_snapshot();
         $this->log_cleanup( $operation . ' hook snapshot: ' . wp_json_encode( $hook_snapshot ), 'debug' );
 
@@ -1072,6 +1123,7 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
             ? 'CAST(t.option_value AS UNSIGNED) < UNIX_TIMESTAMP()'
             : '( v.option_id IS NULL OR CAST(t.option_value AS UNSIGNED) < UNIX_TIMESTAMP() )';
 
+        // phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $expired_clause is one of two fixed SQL fragments chosen above, not request input; only the trusted $wpdb->options table name is interpolated and the one-off maintenance result must not be cached.
         $rows = $wpdb->get_results(
             "SELECT t.option_name AS option_name
              FROM {$wpdb->options} t
@@ -1081,7 +1133,7 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
                     SUBSTRING_INDEX(t.option_name, '_timeout_', -1)
                 )
              WHERE (t.option_name LIKE '\_transient\_timeout\_%' OR t.option_name LIKE '\_site\_transient\_timeout\_%')
-               AND " . $expired_clause, // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+               AND " . $expired_clause, // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- static query; $expired_clause is a fixed SQL fragment and only trusted $wpdb table names are interpolated.
             ARRAY_A
         );
 
@@ -1135,7 +1187,7 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
 
             $this->log_cleanup( $operation . ' SQL: ' . $sql, 'debug' );
 
-            $chunk_affected = $wpdb->query( $wpdb->prepare( $sql, $chunk ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            $chunk_affected = $wpdb->query( $wpdb->prepare( $sql, $chunk ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $sql is prepared on this line; $wpdb->options is a trusted table name and the only dynamic part is the %s placeholder list built from $chunk.
 
             if ( false === $chunk_affected ) {
                 $errors[] = (string) $wpdb->last_error;
@@ -1279,15 +1331,29 @@ $active_runtime_rows = max( 0, $active_timeout_rows + $runtime_no_timeout_rows )
         return $this->execute_cleanup_query( __( 'Orphaned comment meta cleanup', 'fastlayer' ), "DELETE cm FROM {$wpdb->commentmeta} cm LEFT JOIN {$wpdb->comments} c ON cm.comment_id = c.comment_ID WHERE c.comment_ID IS NULL" );
     }
 
+    /**
+     * Runs a database cleanup statement and records the outcome.
+     *
+     * `$sql` must always be a hardcoded literal supplied by a caller method;
+     * no request-supplied value may ever be passed here (there is nothing to
+     * bind, so no prepare() is used). All current callers pass literals that
+     * only interpolate {$wpdb->...} table names.
+     *
+     * @param string $operation Human-readable operation label.
+     * @param string $sql       Static cleanup statement.
+     * @return array Result array with success/affected/error keys.
+     */
     private function execute_cleanup_query( $operation, $sql ) {
         global $wpdb;
 
         $this->log_cleanup( $operation . ' SQL: ' . $sql, 'debug' );
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $sql is a static cleanup statement assembled by the callers strictly from trusted $wpdb table names and literals; no request input reaches it.
         $affected = $wpdb->query( $sql );
         if ( false === $affected ) {
             $error = $wpdb->last_error;
             if ( empty( $error ) ) {
+                /* translators: %s: database cleanup operation name. */
                 $error = sprintf( __( '%s failed with an unknown database error.', 'fastlayer' ), $operation );
             }
 

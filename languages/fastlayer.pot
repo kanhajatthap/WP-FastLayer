@@ -1,6 +1,6 @@
-﻿msgid ""
+msgid ""
 msgstr ""
-"Project-Id-Version: FastLayer 1.0.0\n"
+"Project-Id-Version: FastLayer 1.1.0\n"
 "POT-Creation-Date: 2026-07-27 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
@@ -980,7 +980,7 @@ msgid "Processed"
 msgstr ""
 
 #: includes\class-admin.php
-msgid "Processing batch %page% of %count% â€” Converting image %current% of %total%"
+msgid "Processing batch %page% of %count% - Converting image %current% of %total%"
 msgstr ""
 
 #: includes\class-admin.php

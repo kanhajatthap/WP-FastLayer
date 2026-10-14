@@ -1,5 +1,5 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -7,8 +7,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Admin_Bar {
     private static $instance = null;
-    private $action_key = 'wp_fastlayer_admin_bar_action';
-    private $nonce_action_prefix = 'wp_fastlayer_admin_bar_nonce';
+    private $action_key = 'fastlayer_admin_bar_action';
+    private $nonce_action_prefix = 'fastlayer_admin_bar_nonce';
     private $allowed_actions = array(
         'clear_all_cache',
         'clear_css_js_cache',
@@ -80,8 +80,8 @@ class Admin_Bar {
         }
 
         wp_enqueue_style( 'dashicons' );
-        wp_enqueue_style( 'wp-fastlayer-admin', WP_FASTLAYER_URL . 'assets/css/admin.css', array(), WP_FASTLAYER_VERSION );
-        wp_enqueue_script( 'wp-fastlayer-admin', WP_FASTLAYER_URL . 'assets/js/admin.js', array( 'jquery' ), WP_FASTLAYER_VERSION, true );
+        wp_enqueue_style( 'fastlayer-admin', FASTLAYER_URL . 'assets/css/admin.css', array(), FASTLAYER_VERSION );
+        wp_enqueue_script( 'fastlayer-admin', FASTLAYER_URL . 'assets/js/admin.js', array( 'jquery' ), FASTLAYER_VERSION, true );
     }
 
     public function handle_action_request() {
@@ -103,7 +103,7 @@ class Admin_Bar {
             wp_die( esc_html__( 'You do not have permission to perform this action.', 'fastlayer' ), esc_html__( 'Error', 'fastlayer' ), array( 'response' => 403 ) );
         }
 
-        $redirect_to = isset( $_GET['redirect_to'] ) ? wp_unslash( $_GET['redirect_to'] ) : '';
+        $redirect_to = isset( $_GET['redirect_to'] ) ? esc_url_raw( wp_unslash( $_GET['redirect_to'] ) ) : '';
         $redirect_to = $this->sanitize_redirect_url( $redirect_to, admin_url( 'admin.php?page=wp-fastlayer' ) );
 
         switch ( $action ) {
@@ -126,46 +126,50 @@ class Admin_Bar {
             return;
         }
 
-        if ( ! isset( $_GET['wp_fastlayer_admin_bar_message'] ) ) {
+        if ( ! isset( $_GET['fastlayer_admin_bar_message'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
             return;
         }
 
-        $message = sanitize_text_field( wp_unslash( $_GET['wp_fastlayer_admin_bar_message'] ) );
+        $message = sanitize_text_field( wp_unslash( $_GET['fastlayer_admin_bar_message'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice/deep-link flag produced by the plugin's own wp_safe_redirect(); no state changes.
         $notice  = '';
         $type    = 'notice-success';
 
         switch ( $message ) {
             case 'cache_cleared':
-                $notice = esc_html__( 'Cache cleared successfully via FastLayer admin bar.', 'fastlayer' );
+                $notice = __( 'Cache cleared successfully via FastLayer admin bar.', 'fastlayer' );
                 break;
             case 'css_js_cleared':
-                $notice = esc_html__( 'CSS/JS cache cleared successfully via FastLayer admin bar.', 'fastlayer' );
+                $notice = __( 'CSS/JS cache cleared successfully via FastLayer admin bar.', 'fastlayer' );
                 break;
             case 'preload_started':
                 // The job is still warming pages, so this is not a success
                 // notice: it would report completion that has not happened.
                 $type    = 'notice-info';
-                $notice = esc_html__( 'Cache preload started in the background. You can keep working while pages are warmed.', 'fastlayer' );
+                $notice = __( 'Cache preload started in the background. You can keep working while pages are warmed.', 'fastlayer' );
                 break;
             case 'preload_busy':
                 $type    = 'notice-warning';
-                $notice = esc_html__( 'A cache preload job is already running, so a second one was not started.', 'fastlayer' );
+                $notice = __( 'A cache preload job is already running, so a second one was not started.', 'fastlayer' );
                 break;
             case 'preload_disabled':
                 $type    = 'notice-warning';
-                $notice = esc_html__( 'Cache preloading is disabled, so nothing was queued.', 'fastlayer' );
+                $notice = __( 'Cache preloading is disabled, so nothing was queued.', 'fastlayer' );
                 break;
             case 'preload_error':
                 $type    = 'notice-error';
-                $notice = esc_html__( 'The cache preload job could not be started. See the Cache page for details.', 'fastlayer' );
+                $notice = __( 'The cache preload job could not be started. See the Cache page for details.', 'fastlayer' );
                 break;
         }
 
         if ( $notice ) {
+            // The message is plain text from the switch above, so a single
+            // esc_html() at the point of output is the correct escaping. The
+            // value is intentionally not escaped earlier to avoid escaping it
+            // twice.
             printf(
                 '<div class="notice %1$s wpfastlayer-notice is-dismissible"><p>%2$s</p></div>',
                 esc_attr( $type ),
-                $notice
+                esc_html( $notice )
             );
         }
     }
@@ -196,7 +200,7 @@ class Admin_Bar {
         $redirect_to = add_query_arg(
             array(
                 'page'                           => 'wp-fastlayer',
-                'wp_fastlayer_admin_bar_message' => $message,
+                'fastlayer_admin_bar_message' => $message,
             ),
             admin_url( 'admin.php' )
         );
@@ -236,7 +240,7 @@ class Admin_Bar {
         $this->clear_preload_cache_artifacts();
 
         if ( function_exists( 'delete_transient' ) ) {
-            \delete_transient( 'wp_fastlayer_cache_debug_trace' );
+            \delete_transient( 'fastlayer_cache_debug_trace' );
         }
 
         wp_safe_redirect( $redirect_to );
@@ -247,7 +251,7 @@ class Admin_Bar {
         $this->clear_assets_cache();
 
         if ( function_exists( 'delete_transient' ) ) {
-            \delete_transient( 'wp_fastlayer_cache_debug_trace' );
+            \delete_transient( 'fastlayer_cache_debug_trace' );
         }
 
         wp_safe_redirect( $redirect_to );
@@ -257,29 +261,29 @@ class Admin_Bar {
     private function process_preload_cache( $redirect_to ) {
         $status = 'error';
 
-        if ( class_exists( 'WP_FastLayer\Page_Cache' ) && method_exists( Page_Cache::get_instance(), 'preload_cache' ) ) {
+        if ( class_exists( 'FastLayer\Page_Cache' ) && method_exists( Page_Cache::get_instance(), 'preload_cache' ) ) {
             // The job is queued and returns immediately, so this request is not
             // held open while pages are warmed.
             $status = Page_Cache::get_instance()->preload_cache( 'manual' );
         }
 
         if ( function_exists( 'delete_transient' ) ) {
-            \delete_transient( 'wp_fastlayer_cache_debug_trace' );
+            \delete_transient( 'fastlayer_cache_debug_trace' );
         }
 
         $status = sanitize_key( $status );
 
-        wp_safe_redirect( add_query_arg( 'wp_fastlayer_admin_bar_message', 'preload_' . $status, $redirect_to ) );
+        wp_safe_redirect( add_query_arg( 'fastlayer_admin_bar_message', 'preload_' . $status, $redirect_to ) );
         exit;
     }
 
     private function clear_page_cache() {
-        if ( class_exists( 'WP_FastLayer\Page_Cache' ) && method_exists( Page_Cache::get_instance(), 'clear_all_cache' ) ) {
+        if ( class_exists( 'FastLayer\Page_Cache' ) && method_exists( Page_Cache::get_instance(), 'clear_all_cache' ) ) {
             Page_Cache::get_instance()->clear_all_cache();
             return;
         }
 
-        $this->delete_directory_recursive( WP_FASTLAYER_CACHE_DIR );
+        $this->delete_directory_recursive( FASTLAYER_CACHE_DIR );
     }
 
     private function clear_assets_cache() {
@@ -310,15 +314,15 @@ class Admin_Bar {
 
         foreach ( $iterator as $item ) {
             if ( $item->isDir() ) {
-                @rmdir( $item->getPathname() );
+                Bootstrap::delete_empty_directory( $item->getPathname() );
                 continue;
             }
 
             if ( $item->isFile() || $item->isLink() ) {
-                @unlink( $item->getPathname() );
+                wp_delete_file( $item->getPathname() );
             }
         }
 
-        @rmdir( $directory );
+        Bootstrap::delete_empty_directory( $directory );
     }
 }

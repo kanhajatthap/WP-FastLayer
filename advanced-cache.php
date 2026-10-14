@@ -13,35 +13,36 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-$cache_dir = WP_CONTENT_DIR . '/cache/wp-fastlayer/';
-$config_file = $cache_dir . 'config.php';
-$options = array();
-if ( file_exists( $config_file ) ) {
-    $options = include $config_file;
+$fastlayer_cache_dir = WP_CONTENT_DIR . '/cache/wp-fastlayer/';
+$fastlayer_config_file = $fastlayer_cache_dir . 'config.php';
+$fastlayer_options = array();
+if ( file_exists( $fastlayer_config_file ) ) {
+    $fastlayer_options = include $fastlayer_config_file;
 }
 
-$cache_expiration = 36000;
-if ( isset( $options['cache_expiration'] ) ) {
-    $cache_expiration = max( 1, (int) $options['cache_expiration'] ) * 3600;
+$fastlayer_cache_expiration = 36000;
+if ( isset( $fastlayer_options['cache_expiration'] ) ) {
+    $fastlayer_cache_expiration = max( 1, (int) $fastlayer_options['cache_expiration'] ) * 3600;
 }
 
-function wp_fastlayer_cache_enabled() {
-    global $options;
-    return isset( $options['enable_cache'] ) && '1' === $options['enable_cache'];
+function fastlayer_cache_enabled() {
+    global $fastlayer_options;
+    return isset( $fastlayer_options['enable_cache'] ) && '1' === $fastlayer_options['enable_cache'];
 }
 
-function wp_fastlayer_get_option_lines( $key ) {
-    global $options;
-    if ( ! isset( $options[ $key ] ) || ! is_string( $options[ $key ] ) ) {
+function fastlayer_get_option_lines( $key ) {
+    global $fastlayer_options;
+    if ( ! isset( $fastlayer_options[ $key ] ) || ! is_string( $fastlayer_options[ $key ] ) ) {
         return array();
     }
-    return preg_split( '/\r?\n/', trim( $options[ $key ] ) );
+    return preg_split( '/\r?\n/', trim( $fastlayer_options[ $key ] ) );
 }
 
-function wp_fastlayer_host_from_url( $url ) {
+function fastlayer_host_from_url( $url ) {
     if ( ! is_string( $url ) || '' === $url ) {
         return '';
     }
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- advanced-cache.php runs before wp_parse_url() is defined (the drop-in is included from wp-settings.php before wp-includes/functions.php).
     $parts = parse_url( $url );
     if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
         return '';
@@ -49,12 +50,12 @@ function wp_fastlayer_host_from_url( $url ) {
     return strtolower( $parts['host'] );
 }
 
-function wp_fastlayer_expected_hosts() {
-    global $options;
+function fastlayer_expected_hosts() {
+    global $fastlayer_options;
     $hosts = array();
 
-    if ( isset( $options['_home_host'] ) && is_array( $options['_home_host'] ) ) {
-        foreach ( $options['_home_host'] as $host ) {
+    if ( isset( $fastlayer_options['_home_host'] ) && is_array( $fastlayer_options['_home_host'] ) ) {
+        foreach ( $fastlayer_options['_home_host'] as $host ) {
             if ( is_string( $host ) && '' !== $host ) {
                 $hosts[] = strtolower( $host );
             }
@@ -63,7 +64,7 @@ function wp_fastlayer_expected_hosts() {
 
     foreach ( array( 'WP_HOME', 'WP_SITEURL' ) as $constant_name ) {
         if ( defined( $constant_name ) ) {
-            $host = wp_fastlayer_host_from_url( constant( $constant_name ) );
+            $host = fastlayer_host_from_url( constant( $constant_name ) );
             if ( '' !== $host ) {
                 $hosts[] = $host;
             }
@@ -73,12 +74,12 @@ function wp_fastlayer_expected_hosts() {
     return array_values( array_unique( $hosts ) );
 }
 
-function wp_fastlayer_normalize_request_host() {
+function fastlayer_normalize_request_host() {
     if ( ! isset( $_SERVER['HTTP_HOST'] ) || ! is_string( $_SERVER['HTTP_HOST'] ) ) {
         return '';
     }
 
-    $host = strtolower( trim( $_SERVER['HTTP_HOST'] ) );
+    $host = strtolower( trim( $_SERVER['HTTP_HOST'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision or a validated cache key.
     $colon = strpos( $host, ':' );
     if ( false !== $colon ) {
         $host = substr( $host, 0, $colon );
@@ -91,13 +92,13 @@ function wp_fastlayer_normalize_request_host() {
     return $host;
 }
 
-function wp_fastlayer_is_request_host_trusted() {
-    $expected = wp_fastlayer_expected_hosts();
+function fastlayer_is_request_host_trusted() {
+    $expected = fastlayer_expected_hosts();
     if ( empty( $expected ) ) {
         return false;
     }
 
-    $host = wp_fastlayer_normalize_request_host();
+    $host = fastlayer_normalize_request_host();
     if ( '' === $host ) {
         return false;
     }
@@ -105,10 +106,11 @@ function wp_fastlayer_is_request_host_trusted() {
     return in_array( $host, $expected, true );
 }
 
-function wp_fastlayer_strip_url_domain( $url ) {
+function fastlayer_strip_url_domain( $url ) {
     // WordPress is not loaded this early, so this mirrors the runtime
     // Page_Cache::strip_url_domain() using the native parse_url() instead of
     // wp_parse_url(). Both cache paths must agree on what an exclusion matches.
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- advanced-cache.php runs before wp_parse_url() is defined; mirrors Page_Cache::strip_url_domain() so both cache paths agree.
     $parsed = parse_url( $url );
     if ( ! is_array( $parsed ) || empty( $parsed['path'] ) ) {
         return $url;
@@ -122,7 +124,7 @@ function wp_fastlayer_strip_url_domain( $url ) {
     return $path;
 }
 
-function wp_fastlayer_matches_patterns( $value, $patterns ) {
+function fastlayer_matches_patterns( $value, $patterns ) {
     foreach ( $patterns as $pattern ) {
         $pattern = trim( $pattern );
         if ( '' === $pattern ) {
@@ -131,14 +133,14 @@ function wp_fastlayer_matches_patterns( $value, $patterns ) {
 
         if ( false !== strpos( $pattern, '*' ) || false !== strpos( $pattern, '(.*)' ) ) {
             $regex = '#^' . str_replace( array( '\*', '(.*)' ), array( '.*', '.*' ), preg_quote( $pattern, '#' ) ) . '$#i';
-            if ( preg_match( $regex, $value ) || preg_match( $regex, wp_fastlayer_strip_url_domain( $value ) ) ) {
+            if ( preg_match( $regex, $value ) || preg_match( $regex, fastlayer_strip_url_domain( $value ) ) ) {
                 return true;
             }
             continue;
         }
 
-        $value_compare   = wp_fastlayer_strip_url_domain( $value );
-        $pattern_compare = wp_fastlayer_strip_url_domain( $pattern );
+        $value_compare   = fastlayer_strip_url_domain( $value );
+        $pattern_compare = fastlayer_strip_url_domain( $pattern );
 
         if ( stripos( $value_compare, $pattern_compare ) !== false || stripos( $value, $pattern ) !== false ) {
             return true;
@@ -148,8 +150,8 @@ function wp_fastlayer_matches_patterns( $value, $patterns ) {
     return false;
 }
 
-function wp_fastlayer_has_excluded_cookie() {
-    $patterns = wp_fastlayer_get_option_lines( 'exclude_cookies' );
+function fastlayer_has_excluded_cookie() {
+    $patterns = fastlayer_get_option_lines( 'exclude_cookies' );
     if ( empty( $patterns ) || ! isset( $_COOKIE ) || ! is_array( $_COOKIE ) ) {
         return false;
     }
@@ -169,10 +171,10 @@ function wp_fastlayer_has_excluded_cookie() {
     return false;
 }
 
-function wp_fastlayer_should_skip_cache() {
+function fastlayer_should_skip_cache() {
     // WordPress is not loaded this early, so HTTP_HOST is fully client
     // controlled. It must be validated before it can be used in a cache key.
-    if ( ! wp_fastlayer_is_request_host_trusted() ) {
+    if ( ! fastlayer_is_request_host_trusted() ) {
         return true;
     }
 
@@ -221,7 +223,7 @@ function wp_fastlayer_should_skip_cache() {
         return true;
     }
 
-    $request_uri = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '';
+    $request_uri = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision or a validated cache key.
 
     // REST_REQUEST is defined long after this drop-in runs, so match both the
     // pretty permalink path and the ?rest_route= query form as well.
@@ -233,10 +235,10 @@ function wp_fastlayer_should_skip_cache() {
     }
 
     // Preview and search, matching is_preview() and is_search() at runtime.
-    if ( isset( $_GET['preview'] ) || isset( $_GET['preview_id'] ) || isset( $_GET['post_preview'] ) ) {
+    if ( isset( $_GET['preview'] ) || isset( $_GET['preview_id'] ) || isset( $_GET['post_preview'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only cache-decision input in the pre-WordPress drop-in; no nonce exists and no state changes.
         return true;
     }
-    if ( isset( $_GET['s'] ) ) {
+    if ( isset( $_GET['s'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only cache-decision input in the pre-WordPress drop-in; no nonce exists and no state changes.
         return true;
     }
     // A 404 cannot be detected before WordPress parses the query. It is already
@@ -260,24 +262,24 @@ function wp_fastlayer_should_skip_cache() {
         }
     }
 
-    if ( wp_fastlayer_matches_patterns( $request_uri, wp_fastlayer_get_option_lines( 'exclude_urls' ) ) ) {
+    if ( fastlayer_matches_patterns( $request_uri, fastlayer_get_option_lines( 'exclude_urls' ) ) ) {
         return true;
     }
 
-    if ( wp_fastlayer_has_excluded_cookie() ) {
+    if ( fastlayer_has_excluded_cookie() ) {
         return true;
     }
 
-    $user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) && is_string( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '';
-    if ( wp_fastlayer_matches_patterns( $user_agent, wp_fastlayer_get_option_lines( 'exclude_user_agents' ) ) ) {
+    $user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) && is_string( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision or a validated cache key.
+    if ( fastlayer_matches_patterns( $user_agent, fastlayer_get_option_lines( 'exclude_user_agents' ) ) ) {
         return true;
     }
 
     return false;
 }
 
-function wp_fastlayer_get_accept_cache_variant() {
-    $accept = isset( $_SERVER['HTTP_ACCEPT'] ) && is_string( $_SERVER['HTTP_ACCEPT'] ) ? strtolower( $_SERVER['HTTP_ACCEPT'] ) : '';
+function fastlayer_get_accept_cache_variant() {
+    $accept = isset( $_SERVER['HTTP_ACCEPT'] ) && is_string( $_SERVER['HTTP_ACCEPT'] ) ? strtolower( $_SERVER['HTTP_ACCEPT'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision or a validated cache key.
 
     if ( false !== strpos( $accept, 'image/avif' ) ) {
         return 'accept-avif';
@@ -290,31 +292,31 @@ function wp_fastlayer_get_accept_cache_variant() {
     return 'accept-legacy';
 }
 
-function wp_fastlayer_get_cache_file() {
-    global $cache_dir;
+function fastlayer_get_cache_file() {
+    global $fastlayer_cache_dir;
 
     $protocol = function_exists( 'is_ssl' ) && is_ssl() ? 'https' : 'http';
-    $host = isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : '';
-    $request_uri = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '';
+    $host = isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ? $_SERVER['HTTP_HOST'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision or a validated cache key.
+    $request_uri = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision or a validated cache key.
     $url = $protocol . '://' . $host . $request_uri;
-    $cache_key = md5( $url . '|' . wp_fastlayer_get_accept_cache_variant() );
+    $cache_key = md5( $url . '|' . fastlayer_get_accept_cache_variant() );
 
-    return $cache_dir . $cache_key . '.html';
+    return $fastlayer_cache_dir . $cache_key . '.html';
 }
 
-function wp_fastlayer_is_cache_expired( $file ) {
-    global $cache_expiration;
-    return ( time() - filemtime( $file ) ) > $cache_expiration;
+function fastlayer_is_cache_expired( $file ) {
+    global $fastlayer_cache_expiration;
+    return ( time() - filemtime( $file ) ) > $fastlayer_cache_expiration;
 }
 
-function wp_fastlayer_is_safe_path( $path ) {
-    global $cache_dir;
+function fastlayer_is_safe_path( $path ) {
+    global $fastlayer_cache_dir;
     $realpath = realpath( $path );
     if ( false === $realpath ) {
         return false;
     }
 
-    $cache_realpath = realpath( $cache_dir );
+    $cache_realpath = realpath( $fastlayer_cache_dir );
     if ( false === $cache_realpath ) {
         return false;
     }
@@ -322,21 +324,23 @@ function wp_fastlayer_is_safe_path( $path ) {
     return 0 === strpos( $realpath, $cache_realpath );
 }
 
-if ( wp_fastlayer_cache_enabled() && ! wp_fastlayer_should_skip_cache() ) {
-    $cache_file = wp_fastlayer_get_cache_file();
+if ( fastlayer_cache_enabled() && ! fastlayer_should_skip_cache() ) {
+    $fastlayer_cache_file = fastlayer_get_cache_file();
 
-    if ( file_exists( $cache_file ) && wp_fastlayer_is_safe_path( $cache_file ) ) {
-        if ( wp_fastlayer_is_cache_expired( $cache_file ) ) {
-            @unlink( $cache_file );
+    if ( file_exists( $fastlayer_cache_file ) && fastlayer_is_safe_path( $fastlayer_cache_file ) ) {
+        if ( fastlayer_is_cache_expired( $fastlayer_cache_file ) ) {
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- advanced-cache.php runs before wp_delete_file() is defined (the drop-in is included before wp-includes/functions.php).
+            @unlink( $fastlayer_cache_file );
         } else {
             if ( ! headers_sent() ) {
-                $expiration = $cache_expiration;
+                $fastlayer_expiration = $fastlayer_cache_expiration;
                 header( 'Vary: Accept', false );
                 header( 'X-Cache-Status: HIT' );
-                header( 'Cache-Control: public, max-age=' . $expiration . ', s-maxage=' . $expiration );
+                header( 'Cache-Control: public, max-age=' . $fastlayer_expiration . ', s-maxage=' . $fastlayer_expiration );
                 header( 'X-Cache-Generated: yes' );
             }
-            readfile( $cache_file );
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- advanced-cache.php runs before WP_Filesystem exists; readfile() streams the cache file and the request ends here.
+            readfile( $fastlayer_cache_file );
             exit;
         }
     }

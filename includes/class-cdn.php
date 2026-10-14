@@ -1,5 +1,5 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -32,7 +32,7 @@ class CDN {
         add_filter( 'woocommerce_single_product_image_html', array( $this, 'rewrite_html_content_images' ), 1001 );
         add_filter( 'woocommerce_single_product_image_thumbnail_html', array( $this, 'rewrite_html_content_images' ), 1001 );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_imagekit_runtime_debugger' ), 99 );
-        add_action( 'wp_ajax_wp_fastlayer_image_debug_collect', array( $this, 'handle_image_runtime_debug_collect' ) );
+        add_action( 'wp_ajax_fastlayer_image_debug_collect', array( $this, 'handle_image_runtime_debug_collect' ) );
         add_action( 'wp_head', array( $this, 'print_smart_lcp_preload_hint' ), 5 );
         add_action( 'wp_footer', array( $this, 'print_smart_lcp_debug_console_log' ), 9999 );
     }
@@ -94,26 +94,26 @@ class CDN {
         }
 
         wp_enqueue_script(
-            'wp-fastlayer-imagekit-runtime-debug',
-            WP_FASTLAYER_URL . 'assets/js/imagekit-runtime-debug.js',
+            'fastlayer-imagekit-runtime-debug',
+            FASTLAYER_URL . 'assets/js/imagekit-runtime-debug.js',
             array(),
-            WP_FASTLAYER_VERSION,
+            FASTLAYER_VERSION,
             true
         );
 
         wp_localize_script(
-            'wp-fastlayer-imagekit-runtime-debug',
-            'wpFastLayerImageRuntime',
+            'fastlayer-imagekit-runtime-debug',
+            'fastLayerImageRuntime',
             array(
                 'enabled' => true,
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-                'nonce' => wp_create_nonce( 'wp_fastlayer_image_debug_collect' ),
+                'nonce' => wp_create_nonce( 'fastlayer_image_debug_collect' ),
                 'oversizeRatio' => $this->get_imagekit_max_oversize_ratio(),
                 'maxOversizeRatio' => $this->get_imagekit_max_oversize_ratio(),
                 'runtimeCorrection' => $this->is_imagekit_runtime_correction_enabled(),
                 'overlayEnabled' => $this->is_imagekit_runtime_overlay_enabled(),
                 'buckets' => $this->get_imagekit_width_buckets(),
-                'collectAction' => 'wp_fastlayer_image_debug_collect',
+                'collectAction' => 'fastlayer_image_debug_collect',
                 'collectLimit' => 40,
             )
         );
@@ -128,15 +128,15 @@ class CDN {
             wp_send_json_error( array( 'message' => 'forbidden' ), 403 );
         }
 
-        check_ajax_referer( 'wp_fastlayer_image_debug_collect', 'nonce' );
+        check_ajax_referer( 'fastlayer_image_debug_collect', 'nonce' );
 
-        $raw_entries = isset( $_POST['entries'] ) ? wp_unslash( $_POST['entries'] ) : '';
+        $raw_entries = isset( $_POST['entries'] ) ? wp_unslash( $_POST['entries'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- JSON payload; the caller verifies its nonce and capability and every decoded field is sanitized (absint()/esc_url_raw()) below.
         $decoded = json_decode( (string) $raw_entries, true );
         if ( ! is_array( $decoded ) ) {
             wp_send_json_error( array( 'message' => 'invalid_payload' ), 400 );
         }
 
-        $existing = get_option( 'wp_fastlayer_image_runtime_debug_samples', array() );
+        $existing = get_option( 'fastlayer_image_runtime_debug_samples', array() );
         $existing = is_array( $existing ) ? $existing : array();
         $captured = array();
 
@@ -188,7 +188,7 @@ class CDN {
             $merged = array_slice( $merged, -250 );
         }
 
-        update_option( 'wp_fastlayer_image_runtime_debug_samples', $merged, false );
+        update_option( 'fastlayer_image_runtime_debug_samples', $merged, false );
         wp_send_json_success( array( 'saved' => count( $captured ) ) );
     }
 
@@ -381,12 +381,12 @@ class CDN {
     }
 
     private function is_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_cdn'] ) && '1' === $options['enable_cdn'] && ! empty( $options['cdn_cname'] );
     }
 
     private function is_imagekit_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         return isset( $options['enable_imagekit_cdn'] )
             && '1' === (string) $options['enable_imagekit_cdn']
@@ -394,7 +394,7 @@ class CDN {
     }
 
     private function get_cdn_base_url() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $cdn = isset( $options['cdn_cname'] ) ? trim( $options['cdn_cname'] ) : '';
         if ( empty( $cdn ) ) {
             return '';
@@ -451,7 +451,7 @@ class CDN {
             return $url;
         }
 
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $endpoint = isset( $options['imagekit_endpoint'] ) ? trim( (string) $options['imagekit_endpoint'] ) : '';
 
         if ( '' === $endpoint ) {
@@ -525,7 +525,7 @@ class CDN {
         $this->log_output(
             array(
                 'final_url'             => $new_url,
-                'request_accept_header' => $_SERVER['HTTP_ACCEPT'] ?? null,
+                'request_accept_header' => $this->get_request_accept_header(),
                 'is_imagekit_url'       => false !== strpos( $new_url, 'imagekit.io' ),
                 'original_url'          => $url,
                 'selected_rewrite_mode' => $mode,
@@ -561,12 +561,27 @@ class CDN {
         $this->log_output(
             array(
                 'final_url'             => $rebuilt,
-                'request_accept_header' => $_SERVER['HTTP_ACCEPT'] ?? null,
+                'request_accept_header' => $this->get_request_accept_header(),
                 'is_imagekit_url'       => false !== strpos( $rebuilt, 'imagekit.io' ),
             )
         );
 
         return $rebuilt;
+    }
+
+    /**
+     * Accept header for debug transcripts.
+     *
+     * Only ever used inside the admin debug log, so a non-string value (which
+     * can only come from an unusual server setup) is reduced to null rather
+     * than being interpolated into the JSON report.
+     */
+    private function get_request_accept_header() {
+        if ( isset( $_SERVER['HTTP_ACCEPT'] ) && is_string( $_SERVER['HTTP_ACCEPT'] ) ) {
+            return sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) );
+        }
+
+        return null;
     }
 
     private function merge_imagekit_transforms( $existing_transforms, $width = 0, $is_background_image = false ) {
@@ -714,7 +729,7 @@ class CDN {
     }
 
     private function get_imagekit_auto_format_transform() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         if ( isset( $options['imagekit_auto_format'] ) && '1' === (string) $options['imagekit_auto_format'] ) {
             if ( isset( $options['imagekit_auto_format_mode'] ) && 'fm-auto' === $options['imagekit_auto_format_mode'] ) {
                 return 'fm-auto';
@@ -1263,7 +1278,7 @@ class CDN {
     }
 
     private function get_imagekit_max_oversize_ratio() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $ratio = isset( $options['imagekit_max_oversize_ratio'] ) ? (float) $options['imagekit_max_oversize_ratio'] : 1.5;
 
         if ( $ratio < 1.0 ) {
@@ -1278,13 +1293,13 @@ class CDN {
     }
 
     private function is_imagekit_runtime_correction_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         return ! isset( $options['imagekit_runtime_correction'] ) || '1' === (string) $options['imagekit_runtime_correction'];
     }
 
     private function is_imagekit_runtime_overlay_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         return isset( $options['imagekit_debug_overlay'] ) && '1' === (string) $options['imagekit_debug_overlay'];
     }
@@ -1306,25 +1321,25 @@ class CDN {
     }
 
     private function is_smart_lcp_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         return isset( $options['enable_smart_lcp_optimization'] ) && '1' === (string) $options['enable_smart_lcp_optimization'];
     }
 
     private function is_lcp_preload_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         return ! isset( $options['enable_lcp_preload'] ) || '1' === (string) $options['enable_lcp_preload'];
     }
 
     private function is_lcp_background_support_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         return ! isset( $options['enable_lcp_hero_background'] ) || '1' === (string) $options['enable_lcp_hero_background'];
     }
 
     private function is_lcp_debug_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         return isset( $options['enable_lcp_debug_mode'] ) && '1' === (string) $options['enable_lcp_debug_mode'];
     }
@@ -1635,7 +1650,7 @@ class CDN {
             return;
         }
 
-        set_transient( 'wp_fastlayer_lcp_last_report', $this->get_lcp_debug_payload(), 12 * HOUR_IN_SECONDS );
+        set_transient( 'fastlayer_lcp_last_report', $this->get_lcp_debug_payload(), 12 * HOUR_IN_SECONDS );
         $this->lcp_report_saved = true;
     }
 
@@ -1645,7 +1660,7 @@ class CDN {
         }
 
         $payload = is_array( $context ) ? $context : array();
-        \wp_fastlayer_debug_log( '[WP FastLayer LCP] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
+        \fastlayer_debug_log( '[WP FastLayer LCP] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
     }
 
     private function debug_log( $message, $context = array() ) {
@@ -1654,7 +1669,7 @@ class CDN {
         }
 
         $payload = is_array( $context ) ? $context : array();
-        \wp_fastlayer_debug_log( '[WP FastLayer ImageKit] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
+        \fastlayer_debug_log( '[WP FastLayer ImageKit] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
     }
 
     private function log_output( $payload ) {

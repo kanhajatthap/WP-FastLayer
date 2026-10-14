@@ -1,5 +1,5 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -77,48 +77,48 @@ class Optimizer {
     }
 
     private function is_css_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_minify_css'] ) && '1' === $options['enable_minify_css'];
     }
 
     private function is_js_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_minify_js'] ) && '1' === $options['enable_minify_js'];
     }
 
     private function is_defer_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_js_defer'] ) && '1' === $options['enable_js_defer'];
     }
 
     private function is_safe_mode_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_js_safe_mode'] ) && '1' === $options['enable_js_safe_mode'];
     }
 
     private function is_async_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_js_async'] ) && '1' === $options['enable_js_async'];
     }
 
     private function is_smart_delay_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_js_smart_delay'] ) && '1' === $options['enable_js_smart_delay'];
     }
 
     private function is_smart_delay_debug_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_js_smart_delay_debug'] ) && '1' === $options['enable_js_smart_delay_debug'];
     }
 
     private function get_smart_delay_timeout() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $timeout = isset( $options['smart_js_delay_timeout'] ) ? absint( $options['smart_js_delay_timeout'] ) : 6000;
         return max( 1000, min( 15000, $timeout ) );
     }
 
     private function get_smart_delay_exclusion_patterns() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['smart_js_delay_exclusions'] ) ? preg_split( '/\r?\n/', trim( (string) $options['smart_js_delay_exclusions'] ) ) : array();
     }
 
@@ -136,11 +136,11 @@ class Optimizer {
             'woocommerce',
             'wc-add-to-cart',
             'wc-cart-fragments',
-            'wp-fastlayer-imagekit-runtime-debug',
-            'wp-fastlayer-lazyload',
-            'wp-fastlayer-lqip',
-            'wp-fastlayer-delay-loader',
-            'wp-fastlayer-smart-delay-loader',
+            'fastlayer-imagekit-runtime-debug',
+            'fastlayer-lazyload',
+            'fastlayer-lqip',
+            'fastlayer-delay-loader',
+            'fastlayer-smart-delay-loader',
             'navigation',
             'menu',
             'webpack-runtime',
@@ -166,7 +166,7 @@ class Optimizer {
             'session',
             'lazyload',
             'wpfastlayerlazyload',
-            'wp-fastlayer-imagekit-runtime-debug',
+            'fastlayer-imagekit-runtime-debug',
         );
     }
 
@@ -226,7 +226,7 @@ class Optimizer {
     private function is_fastlayer_runtime_handle( $handle ) {
         return in_array(
             strtolower( (string) $handle ),
-            array( 'wp-fastlayer-lqip', 'wp-fastlayer-delay-loader', 'wp-fastlayer-smart-delay-loader' ),
+            array( 'fastlayer-lqip', 'fastlayer-delay-loader', 'fastlayer-smart-delay-loader' ),
             true
         );
     }
@@ -236,9 +236,9 @@ class Optimizer {
             return false;
         }
 
-        set_error_handler( '__return_false' );
-        $result = preg_match( $pattern, '' );
-        restore_error_handler();
+        // The @ operator silences the warning PHP raises for a malformed
+        // pattern; only the boolean result matters here.
+        $result = @preg_match( $pattern, '' );
 
         return false !== $result;
     }
@@ -870,25 +870,25 @@ class Optimizer {
             return;
         }
 
-        $loader = '(function(cfg){if(!cfg||window.__wpFastLayerSmartDelayInit){return;}window.__wpFastLayerSmartDelayInit=true;var startedAt=Date.now();var restored=false;var fallbackTimer=0;var flushTimer=0;var selector="script[type=\"text/wp-fastlayer-delay\"],script[type=\"wp-fastlayer-delay\"]";var FLUSH_AFTER=15000;function log(label,payload){if(!cfg.debug||!window.console){return;}if(window.console.groupCollapsed){window.console.groupCollapsed(cfg.prefix+" "+label);}if(typeof payload!=="undefined"){try{window.console.log(payload);}catch(e){}}if(window.console.groupEnd){window.console.groupEnd();}}function copyAttributes(from,to){var attrs=from&&from.attributes?from.attributes:[];for(var i=0;i<attrs.length;i++){var attr=attrs[i];if(!attr||!attr.name){continue;}if("type"===attr.name||"data-wpfl-src"===attr.name||"data-wpfl-type"===attr.name||"data-wpfl-delayed"===attr.name||"data-wpfl-restored"===attr.name){continue;}to.setAttribute(attr.name,attr.value);}}function isExternal(node){return !!node.getAttribute("data-wpfl-src");}function blockPriority(node){var value=parseInt(node.getAttribute("data-wpfl-priority"),10);return isNaN(value)?0:value;}function collectQueue(){var nodes=document.querySelectorAll(selector);var list=[];for(var i=0;i<nodes.length;i++){list.push({node:nodes[i],order:i});}list.sort(function(a,b){var pa=blockPriority(a.node);var pb=blockPriority(b.node);if(pa!==pb){return pa<pb?-1:1;}return a.order-b.order;});return list;}function getExcludedScripts(){return document.querySelectorAll("script[data-wpfl-delay-excluded=\"1\"]");}function removeListeners(){for(var i=0;i<cfg.events.length;i++){window.removeEventListener(cfg.events[i],onFirstInteraction,true);}}function restoreBlock(node,onDone){if(!node||node.getAttribute("data-wpfl-restored")==="1"||!node.parentNode){return null;}var restored=document.createElement("script");copyAttributes(node,restored);var source=node.getAttribute("data-wpfl-src")||"";var originalType=node.getAttribute("data-wpfl-type")||"";if(originalType){restored.setAttribute("type",originalType);}restored.setAttribute("data-wpfl-restored","1");node.setAttribute("data-wpfl-restored","1");if(source){restored.removeAttribute("async");restored.removeAttribute("defer");restored.async=false;restored.onload=onDone;restored.onerror=onDone;restored.setAttribute("src",source);}else{restored.text=node.textContent||node.innerText||"";}node.parentNode.replaceChild(restored,node);return{src:source,handle:node.getAttribute("data-wpfl-handle")||"inline",slot:node.getAttribute("data-wpfl-slot")||"script",external:!!source};}function restoreAll(reason){if(restored){return;}restored=true;removeListeners();if(fallbackTimer){window.clearTimeout(fallbackTimer);}var list=collectQueue();var executed=0;var totalExternals=0;var restoredCount=0;var finished=false;var waiters=[];var i;function finish(){if(finished){return;}finished=true;if(flushTimer){window.clearTimeout(flushTimer);}var elapsed=Date.now()-startedAt;log("execution_timing",{reason:reason,delayMs:elapsed,restored:restoredCount});try{document.dispatchEvent(new CustomEvent("wp-fastlayer:delay-restored",{detail:{reason:reason,restored:restoredCount,delayMs:elapsed}}));}catch(e){}}function maybeFinish(){if(executed>=totalExternals&&0===waiters.length){finish();}}function runInline(item){var info=restoreBlock(item.node,null);if(!info){return;}restoredCount++;log("restored_inline",info);}function release(){while(waiters.length&&executed>=waiters[0].need){runInline(waiters.shift());}}function onExternalDone(){executed++;release();maybeFinish();}for(i=0;i<list.length;i++){if(isExternal(list[i].node)){totalExternals++;}list[i].need=totalExternals;}for(i=0;i<list.length;i++){if(!isExternal(list[i].node)){waiters.push(list[i]);}}for(i=0;i<list.length;i++){if(!isExternal(list[i].node)){continue;}var info=restoreBlock(list[i].node,onExternalDone);if(info){restoredCount++;log("restored_script",info);}else{onExternalDone();}}flushTimer=window.setTimeout(function(){executed=totalExternals;release();maybeFinish();},FLUSH_AFTER);release();maybeFinish();}function onFirstInteraction(event){restoreAll(event&&event.type?event.type:"interaction");}for(var i=0;i<cfg.events.length;i++){var eventName=cfg.events[i];var listenerOptions=("scroll"===eventName||"mousemove"===eventName||"touchstart"===eventName)?{capture:true,passive:true,once:true}:{capture:true,once:true};window.addEventListener(eventName,onFirstInteraction,listenerOptions);}fallbackTimer=window.setTimeout(function(){restoreAll("timeout");},Math.max(1000,parseInt(cfg.timeout,10)||6000));var queued=collectQueue();var queuedHandles=[];for(var q=0;q<queued.length;q++){queuedHandles.push(queued[q].node.getAttribute("data-wpfl-handle")||"inline");}var excluded=getExcludedScripts();var excludedHandles=[];for(var x=0;x<excluded.length;x++){excludedHandles.push(excluded[x].getAttribute("data-wpfl-handle")||"unknown");}log("delayed_scripts",{count:queued.length,handles:queuedHandles});log("excluded_scripts",{count:excluded.length,handles:excludedHandles});log("engine_initialized",{events:cfg.events,timeout:cfg.timeout});})(' . $config_json . ');';
+        $loader = '(function(cfg){if(!cfg||window.__fastLayerSmartDelayInit){return;}window.__fastLayerSmartDelayInit=true;var startedAt=Date.now();var restored=false;var fallbackTimer=0;var flushTimer=0;var selector="script[type=\"text/wp-fastlayer-delay\"],script[type=\"wp-fastlayer-delay\"]";var FLUSH_AFTER=15000;function log(label,payload){if(!cfg.debug||!window.console){return;}if(window.console.groupCollapsed){window.console.groupCollapsed(cfg.prefix+" "+label);}if(typeof payload!=="undefined"){try{window.console.log(payload);}catch(e){}}if(window.console.groupEnd){window.console.groupEnd();}}function copyAttributes(from,to){var attrs=from&&from.attributes?from.attributes:[];for(var i=0;i<attrs.length;i++){var attr=attrs[i];if(!attr||!attr.name){continue;}if("type"===attr.name||"data-wpfl-src"===attr.name||"data-wpfl-type"===attr.name||"data-wpfl-delayed"===attr.name||"data-wpfl-restored"===attr.name){continue;}to.setAttribute(attr.name,attr.value);}}function isExternal(node){return !!node.getAttribute("data-wpfl-src");}function blockPriority(node){var value=parseInt(node.getAttribute("data-wpfl-priority"),10);return isNaN(value)?0:value;}function collectQueue(){var nodes=document.querySelectorAll(selector);var list=[];for(var i=0;i<nodes.length;i++){list.push({node:nodes[i],order:i});}list.sort(function(a,b){var pa=blockPriority(a.node);var pb=blockPriority(b.node);if(pa!==pb){return pa<pb?-1:1;}return a.order-b.order;});return list;}function getExcludedScripts(){return document.querySelectorAll("script[data-wpfl-delay-excluded=\"1\"]");}function removeListeners(){for(var i=0;i<cfg.events.length;i++){window.removeEventListener(cfg.events[i],onFirstInteraction,true);}}function restoreBlock(node,onDone){if(!node||node.getAttribute("data-wpfl-restored")==="1"||!node.parentNode){return null;}var restored=document.createElement("script");copyAttributes(node,restored);var source=node.getAttribute("data-wpfl-src")||"";var originalType=node.getAttribute("data-wpfl-type")||"";if(originalType){restored.setAttribute("type",originalType);}restored.setAttribute("data-wpfl-restored","1");node.setAttribute("data-wpfl-restored","1");if(source){restored.removeAttribute("async");restored.removeAttribute("defer");restored.async=false;restored.onload=onDone;restored.onerror=onDone;restored.setAttribute("src",source);}else{restored.text=node.textContent||node.innerText||"";}node.parentNode.replaceChild(restored,node);return{src:source,handle:node.getAttribute("data-wpfl-handle")||"inline",slot:node.getAttribute("data-wpfl-slot")||"script",external:!!source};}function restoreAll(reason){if(restored){return;}restored=true;removeListeners();if(fallbackTimer){window.clearTimeout(fallbackTimer);}var list=collectQueue();var executed=0;var totalExternals=0;var restoredCount=0;var finished=false;var waiters=[];var i;function finish(){if(finished){return;}finished=true;if(flushTimer){window.clearTimeout(flushTimer);}var elapsed=Date.now()-startedAt;log("execution_timing",{reason:reason,delayMs:elapsed,restored:restoredCount});try{document.dispatchEvent(new CustomEvent("wp-fastlayer:delay-restored",{detail:{reason:reason,restored:restoredCount,delayMs:elapsed}}));}catch(e){}}function maybeFinish(){if(executed>=totalExternals&&0===waiters.length){finish();}}function runInline(item){var info=restoreBlock(item.node,null);if(!info){return;}restoredCount++;log("restored_inline",info);}function release(){while(waiters.length&&executed>=waiters[0].need){runInline(waiters.shift());}}function onExternalDone(){executed++;release();maybeFinish();}for(i=0;i<list.length;i++){if(isExternal(list[i].node)){totalExternals++;}list[i].need=totalExternals;}for(i=0;i<list.length;i++){if(!isExternal(list[i].node)){waiters.push(list[i]);}}for(i=0;i<list.length;i++){if(!isExternal(list[i].node)){continue;}var info=restoreBlock(list[i].node,onExternalDone);if(info){restoredCount++;log("restored_script",info);}else{onExternalDone();}}flushTimer=window.setTimeout(function(){executed=totalExternals;release();maybeFinish();},FLUSH_AFTER);release();maybeFinish();}function onFirstInteraction(event){restoreAll(event&&event.type?event.type:"interaction");}for(var i=0;i<cfg.events.length;i++){var eventName=cfg.events[i];var listenerOptions=("scroll"===eventName||"mousemove"===eventName||"touchstart"===eventName)?{capture:true,passive:true,once:true}:{capture:true,once:true};window.addEventListener(eventName,onFirstInteraction,listenerOptions);}fallbackTimer=window.setTimeout(function(){restoreAll("timeout");},Math.max(1000,parseInt(cfg.timeout,10)||6000));var queued=collectQueue();var queuedHandles=[];for(var q=0;q<queued.length;q++){queuedHandles.push(queued[q].node.getAttribute("data-wpfl-handle")||"inline");}var excluded=getExcludedScripts();var excludedHandles=[];for(var x=0;x<excluded.length;x++){excludedHandles.push(excluded[x].getAttribute("data-wpfl-handle")||"unknown");}log("delayed_scripts",{count:queued.length,handles:queuedHandles});log("excluded_scripts",{count:excluded.length,handles:excludedHandles});log("engine_initialized",{events:cfg.events,timeout:cfg.timeout});})(' . $config_json . ');';
 
-        wp_register_script( 'wp-fastlayer-smart-delay-loader', false, array(), WP_FASTLAYER_VERSION, array( 'in_footer' => true ) );
-        wp_enqueue_script( 'wp-fastlayer-smart-delay-loader' );
-        wp_add_inline_script( 'wp-fastlayer-smart-delay-loader', $loader );
+        wp_register_script( 'fastlayer-smart-delay-loader', false, array(), FASTLAYER_VERSION, array( 'in_footer' => true ) );
+        wp_enqueue_script( 'fastlayer-smart-delay-loader' );
+        wp_add_inline_script( 'fastlayer-smart-delay-loader', $loader );
     }
 
     private function get_exclude_css_patterns() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['exclude_css_files'] ) ? preg_split( '/\r?\n/', trim( $options['exclude_css_files'] ) ) : array();
     }
 
     private function get_exclude_js_patterns() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['exclude_js_files'] ) ? preg_split( '/\r?\n/', trim( $options['exclude_js_files'] ) ) : array();
     }
 
     private function get_exclude_js_defer_patterns() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['exclude_js_defer'] ) ? preg_split( '/\r?\n/', trim( $options['exclude_js_defer'] ) ) : array();
     }
 
@@ -907,12 +907,12 @@ class Optimizer {
     }
 
     private function is_css_combine_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_css_combine'] ) && '1' === $options['enable_css_combine'];
     }
 
     private function is_js_combine_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_js_combine'] ) && '1' === $options['enable_js_combine'];
     }
 
@@ -949,11 +949,52 @@ class Optimizer {
             $this->combined_css_urls[ $media_key ] = $this->generate_combined_css_url( $group_handles );
         }
 
+        if ( '' === $this->combined_css_urls[ $media_key ] ) {
+            return $tag;
+        }
+
         if ( $handle !== $group_handles[0] ) {
             return '';
         }
 
-        return '<link rel="stylesheet" id="wp-fastlayer-combined-css-' . esc_attr( $media_key ) . '" href="' . esc_url( $this->combined_css_urls[ $media_key ] ) . '" media="' . esc_attr( $media ) . '" />';
+        return $this->render_registered_stylesheet_tag( $this->combined_css_urls[ $media_key ], $media_key, $media, $tag );
+    }
+
+    /**
+     * Renders the combined stylesheet through WordPress's own style printer.
+     *
+     * The combined URL is registered with wp_register_style() and the tag is
+     * produced by WP_Styles::do_item(), so markup, media handling and escaping
+     * stay exactly in line with every other stylesheet WordPress prints. The
+     * <link> is still substituted in via the style_loader_tag filter: that
+     * filter is the point where the group order is already fixed and where a
+     * single combined request can replace its group of originals without
+     * duplicating or reordering anything.
+     */
+    private function render_registered_stylesheet_tag( $combined_url, $media_key, $media, $fallback_tag ) {
+        $combined_handle = 'fastlayer-combined-css-' . $media_key;
+
+        if ( ! wp_style_is( $combined_handle, 'registered' ) ) {
+            wp_register_style( $combined_handle, $combined_url, array(), FASTLAYER_VERSION, $media );
+        }
+
+        // WP_Styles::do_item() is the only supported way to print a stylesheet
+        // tag. If the styles registry is unavailable, fall back to the original
+        // uncombined tag rather than hand-building markup.
+        global $wp_styles;
+        if ( ! isset( $wp_styles ) || ! ( $wp_styles instanceof \WP_Styles ) ) {
+            return $fallback_tag;
+        }
+
+        ob_start();
+        $wp_styles->do_item( $combined_handle );
+        $tag = (string) ob_get_clean();
+
+        if ( '' === trim( $tag ) ) {
+            return $fallback_tag;
+        }
+
+        return $tag;
     }
 
     public function maybe_combine_js_tag( $tag, $handle, $src ) {
@@ -977,12 +1018,50 @@ class Optimizer {
             $this->combined_js_url = $this->generate_combined_js_url();
         }
 
+        if ( '' === $this->combined_js_url ) {
+            return $tag;
+        }
+
         if ( $handle !== $this->combined_js_handles[0] ) {
             return '';
         }
 
-        $defer = $this->is_defer_enabled() && ! $this->is_excluded_js_defer( $src ) ? ' defer' : '';
-        return '<script src="' . esc_url( $this->combined_js_url ) . '"' . $defer . '></script>\n';
+        return $this->render_registered_script_tag( $this->combined_js_url, $tag );
+    }
+
+    /**
+     * Renders the combined script through WordPress's own script printer.
+     *
+     * As with the combined stylesheet, the URL is handed to wp_register_script()
+     * and the tag is generated by WP_Scripts::do_item(), then substituted for
+     * the group's first <script> through the script_loader_tag filter. Deferral
+     * and async handling keep flowing through the same script_loader_tag filters
+     * as every other script.
+     */
+    private function render_registered_script_tag( $combined_url, $fallback_tag ) {
+        $combined_handle = 'fastlayer-combined-js';
+
+        if ( ! wp_script_is( $combined_handle, 'registered' ) ) {
+            wp_register_script( $combined_handle, $combined_url, array(), FASTLAYER_VERSION, array( 'in_footer' => true ) );
+        }
+
+        // WP_Scripts::do_item() is the only supported way to print a script tag.
+        // If the scripts registry is unavailable, fall back to the original
+        // uncombined tag rather than hand-building markup.
+        global $wp_scripts;
+        if ( ! isset( $wp_scripts ) || ! ( $wp_scripts instanceof \WP_Scripts ) ) {
+            return $fallback_tag;
+        }
+
+        ob_start();
+        $wp_scripts->do_item( $combined_handle );
+        $tag = (string) ob_get_clean();
+
+        if ( '' === trim( $tag ) ) {
+            return $fallback_tag;
+        }
+
+        return $tag;
     }
 
     private function get_combined_css_groups() {
@@ -1202,7 +1281,7 @@ class Optimizer {
 
         if ( $this->is_google_fonts_icon_family_url( $src, $icon_system ) ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer Fonts] skipped_icon_google_font=' . $src . ' reason=' . $icon_system );
+                \fastlayer_debug_log( '[WP FastLayer Fonts] skipped_icon_google_font=' . $src . ' reason=' . $icon_system );
             }
             return $src;
         }
@@ -1214,7 +1293,7 @@ class Optimizer {
         $updated = add_query_arg( 'display', 'swap', $src );
         if ( is_string( $updated ) && '' !== $updated ) {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                \wp_fastlayer_debug_log( '[WP FastLayer Fonts] optimized_google_fonts_url=' . $updated . ' reason=display_swap_added' );
+                \fastlayer_debug_log( '[WP FastLayer Fonts] optimized_google_fonts_url=' . $updated . ' reason=display_swap_added' );
             }
             return $updated;
         }
@@ -1223,7 +1302,7 @@ class Optimizer {
     }
 
     private function is_google_fonts_display_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_google_fonts_display'] ) && '1' === $options['enable_google_fonts_display'];
     }
 
@@ -1600,17 +1679,17 @@ class Optimizer {
     }
 
     private function is_css_delivery_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_css_delivery'] ) && '1' === $options['enable_css_delivery'];
     }
 
     private function is_css_remove_unused_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_css_remove_unused'] ) && '1' === $options['enable_css_remove_unused'];
     }
 
     private function is_smart_gutenberg_css_optimization_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return ! isset( $options['enable_smart_gutenberg_css_optimization'] ) || '1' === (string) $options['enable_smart_gutenberg_css_optimization'];
     }
 
@@ -1718,7 +1797,7 @@ class Optimizer {
         // known once the footer scripts have printed, so it cannot be enqueued on
         // wp_enqueue_scripts without reporting stale data. It is emitted here
         // through the WordPress inline-script API instead of a raw <script> block.
-        wp_print_inline_script_tag( 'window.WPFastLayerBlockCSS=' . $json . ';', array( 'id' => 'wp-fastlayer-block-css-debug' ) );
+        wp_print_inline_script_tag( 'window.fastLayerBlockCSS=' . $json . ';', array( 'id' => 'wp-fastlayer-block-css-debug' ) );
     }
 
     private function trace_block_css_state_snapshot( $stage ) {
@@ -1768,7 +1847,7 @@ class Optimizer {
         $blocks = is_array( $detected_blocks ) ? implode( ',', $detected_blocks ) : '';
         $enqueue_hook_count = (string) did_action( 'wp_enqueue_scripts' );
 
-        \wp_fastlayer_debug_log(
+        \fastlayer_debug_log(
             '[WP FastLayer CSS DEBUG] handle=' . (string) $handle .
             ' registered=' . $registered .
             ' enqueued=' . $enqueued .
@@ -1806,7 +1885,7 @@ class Optimizer {
             return 'rest_api';
         }
 
-        if ( is_preview() || ! empty( $_GET['preview'] ) ) {
+        if ( is_preview() || ! empty( $_GET['preview'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only request classification; no state changes.
             return 'preview';
         }
 
@@ -1819,7 +1898,7 @@ class Optimizer {
             return true;
         }
 
-        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+        $request_uri = ( isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ) ? (string) esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
         return false !== stripos( $request_uri, 'wp-login.php' );
     }
 
@@ -1828,7 +1907,7 @@ class Optimizer {
             return true;
         }
 
-        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+        $request_uri = ( isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ) ? (string) esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
         if ( '' === $request_uri || ! function_exists( 'rest_get_url_prefix' ) ) {
             return false;
         }
@@ -1846,7 +1925,7 @@ class Optimizer {
             return false;
         }
 
-        if ( ! empty( $_GET['elementor-preview'] ) ) {
+        if ( ! empty( $_GET['elementor-preview'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only request classification; no state changes.
             return true;
         }
 
@@ -1951,22 +2030,22 @@ class Optimizer {
     }
 
     private function is_css_inline_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_css_inline'] ) && '1' === $options['enable_css_inline'];
     }
 
     private function is_critical_css_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_critical_css'] ) && '1' === $options['enable_critical_css'];
     }
 
     private function has_critical_css() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return ! empty( $options['critical_css_custom'] );
     }
 
     private function get_critical_css() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['critical_css_custom'] ) ? $options['critical_css_custom'] : '';
     }
 
@@ -1991,9 +2070,9 @@ class Optimizer {
             return;
         }
 
-        wp_register_style( 'wp-fastlayer-critical-css', false, array(), WP_FASTLAYER_VERSION );
-        wp_enqueue_style( 'wp-fastlayer-critical-css' );
-        wp_add_inline_style( 'wp-fastlayer-critical-css', $css );
+        wp_register_style( 'fastlayer-critical-css', false, array(), FASTLAYER_VERSION );
+        wp_enqueue_style( 'fastlayer-critical-css' );
+        wp_add_inline_style( 'fastlayer-critical-css', $css );
     }
 
     private function generate_combined_css_url( array $handles ) {
@@ -2047,8 +2126,18 @@ class Optimizer {
             $content .= "\n/* {$handle} */\n" . $file_content;
         }
 
-        if ( $content ) {
-            file_put_contents( $filepath, trim( $content ), LOCK_EX );
+        if ( '' === $content ) {
+            return '';
+        }
+
+        $css = trim( $content );
+        if ( ! $this->is_safe_path( $filepath ) ) {
+            return '';
+        }
+
+        $written = @file_put_contents( $filepath, $css, LOCK_EX );
+        if ( false === $written || strlen( $css ) !== $written ) {
+            return '';
         }
 
         return $upload_dir['baseurl'] . '/wp-fastlayer-min/' . $filename;
@@ -2104,8 +2193,18 @@ class Optimizer {
             $content .= "\n/* {$handle} */\n" . $file_content;
         }
 
-        if ( $content ) {
-            file_put_contents( $filepath, trim( $content ), LOCK_EX );
+        if ( '' === $content ) {
+            return '';
+        }
+
+        $js = trim( $content );
+        if ( ! $this->is_safe_path( $filepath ) ) {
+            return '';
+        }
+
+        $written = @file_put_contents( $filepath, $js, LOCK_EX );
+        if ( false === $written || strlen( $js ) !== $written ) {
+            return '';
         }
 
         return $upload_dir['baseurl'] . '/wp-fastlayer-min/' . $filename;
@@ -2240,7 +2339,10 @@ class Optimizer {
         }
 
         if ( $this->is_safe_path( $filepath ) ) {
-            file_put_contents( $filepath, $content, LOCK_EX );
+            $written = @file_put_contents( $filepath, $content, LOCK_EX );
+            if ( false === $written || strlen( $content ) !== $written ) {
+                return '';
+            }
             return $upload_dir['baseurl'] . '/wp-fastlayer-min/' . $filename;
         }
 
@@ -2269,7 +2371,7 @@ class Optimizer {
         }
 
         $payload = is_array( $context ) ? $context : array();
-        \wp_fastlayer_debug_log( '[WP FastLayer Font Display] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
+        \fastlayer_debug_log( '[WP FastLayer Font Display] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
     }
 
     private function debug_log_smart_delay( $message, $context = array() ) {
@@ -2278,7 +2380,7 @@ class Optimizer {
         }
 
         $payload = is_array( $context ) ? $context : array();
-        \wp_fastlayer_debug_log( '[WP FastLayer Delay] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
+        \fastlayer_debug_log( '[WP FastLayer Delay] ' . $message . ( ! empty( $payload ) ? ' | ' . wp_json_encode( $payload ) : '' ) );
     }
 
     public function start_html_buffer() {
@@ -2294,7 +2396,7 @@ class Optimizer {
     }
 
     private function is_html_minify_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_minify'] ) && $options['enable_minify'] === '1';
     }
 
@@ -2303,7 +2405,7 @@ class Optimizer {
             return $html;
         }
 
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         $placeholders = array();
         $html = $this->preserve_blocks( $html, $placeholders );
 
@@ -2417,11 +2519,11 @@ class Optimizer {
 
     public function enqueue_lazyload_scripts() {
         if ( ! $this->is_lazyload_enabled() || is_admin() ) return;
-        wp_enqueue_script( 'wp-fastlayer-lazyload', WP_FASTLAYER_URL . 'assets/js/lazyload.js', array(), WP_FASTLAYER_VERSION, true );
+        wp_enqueue_script( 'fastlayer-lazyload', FASTLAYER_URL . 'assets/js/lazyload.js', array(), FASTLAYER_VERSION, true );
     }
 
     private function is_lazyload_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['enable_lazyload'] ) && $options['enable_lazyload'] === '1';
     }
 
@@ -2432,10 +2534,10 @@ class Optimizer {
         $content = preg_replace_callback(
             '/<picture\b[^>]*>.*?<\/picture>/is',
             function ( $matches ) use ( &$placeholders ) {
-                $key = '__WP_FASTLAYER_LAZYLOAD_PICTURE_' . count( $placeholders ) . '__';
+                $key = '__FASTLAYER_LAZYLOAD_PICTURE_' . count( $placeholders ) . '__';
                 $placeholders[ $key ] = $matches[0];
                 if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-                    \wp_fastlayer_debug_log( '[WP FastLayer Lazyload] picture_element_preserved | count=' . count( $placeholders ) );
+                    \fastlayer_debug_log( '[WP FastLayer Lazyload] picture_element_preserved | count=' . count( $placeholders ) );
                 }
                 return $key;
             },
@@ -2446,7 +2548,7 @@ class Optimizer {
         $content = preg_replace( '/<img([^>]+)src=/i', '<img$1data-src=', $content );
 
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            \wp_fastlayer_debug_log( '[WP FastLayer Lazyload] src_converted_to_data_src | count=' . absint( $before_count ) );
+            \fastlayer_debug_log( '[WP FastLayer Lazyload] src_converted_to_data_src | count=' . absint( $before_count ) );
         }
 
         if ( ! empty( $placeholders ) ) {

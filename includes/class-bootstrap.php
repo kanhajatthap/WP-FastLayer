@@ -1,5 +1,5 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class Bootstrap {
@@ -9,7 +9,7 @@ class Bootstrap {
     const ADVANCED_CACHE_DROPIN = WP_CONTENT_DIR . '/advanced-cache.php';
     const ADVANCED_CACHE_DROPIN_MARKER = 'wp-fastlayer:advanced-cache-dropin';
     const WP_CACHE_OWNER_MARKER = 'wp-fastlayer:owned-wp-cache';
-    const WRITE_FAILURE_TRANSIENT = 'wp_fastlayer_write_failures';
+    const WRITE_FAILURE_TRANSIENT = 'fastlayer_write_failures';
 
     public static function get_instance() {
         if ( null === self::$instance ) {
@@ -21,12 +21,18 @@ class Bootstrap {
     private function __construct() {
         $this->is_debug_mode = $this->is_debug_enabled();
 
-        add_action( 'init', array( $this, 'init' ) );
-        register_activation_hook( WP_FASTLAYER_FILE, array( $this, 'activate' ) );
-        register_deactivation_hook( WP_FASTLAYER_FILE, array( $this, 'deactivate' ) );
+add_action( 'init', array( $this, 'init' ) );
+        register_activation_hook( FASTLAYER_FILE, array( $this, 'activate' ) );
+        register_deactivation_hook( FASTLAYER_FILE, array( $this, 'deactivate' ) );
 
-        add_action( 'update_option_wp_fastlayer_options', array( $this, 'sync_static_config' ), 10, 3 );
-        add_action( 'add_option_wp_fastlayer_options', array( $this, 'sync_static_config' ), 10, 2 );
+        add_action( 'update_option_fastlayer_options', array( $this, 'sync_static_config' ), 10, 3 );
+        add_action( 'add_option_fastlayer_options', array( $this, 'sync_static_config' ), 10, 2 );
+
+        // Installs upgraded from the original wp_fastlayer_options naming keep
+        // writing the legacy row until a settings save flips the plugins to
+        // the new key. Mirror those writes so the two rows never diverge.
+        add_action( 'update_option_wp_fastlayer_options', array( $this, 'mirror_legacy_options' ), 10, 3 );
+        add_action( 'add_option_wp_fastlayer_options', array( $this, 'mirror_legacy_options' ), 10, 2 );
 
         if ( is_admin() ) {
             add_action( 'admin_notices', array( $this, 'admin_notices' ) );
@@ -46,7 +52,7 @@ class Bootstrap {
      * @param string $message Human readable reason.
      */
     public static function record_write_failure( $context, $message ) {
-        \wp_fastlayer_debug_log( 'WP FastLayer: ' . $context . ' write failure: ' . $message );
+        \fastlayer_debug_log( 'WP FastLayer: ' . $context . ' write failure: ' . $message );
 
         $failures = get_transient( self::WRITE_FAILURE_TRANSIENT );
         $failures = is_array( $failures ) ? $failures : array();
@@ -73,7 +79,7 @@ class Bootstrap {
         }
 
         if ( ! $this->is_cache_directory_writable() ) {
-            echo '<div class="notice notice-error wpfastlayer-notice"><p><strong>FastLayer:</strong> Cache directory is not writable. Please check permissions for: ' . esc_html( WP_FASTLAYER_CACHE_DIR ) . '</p></div>';
+            echo '<div class="notice notice-error wpfastlayer-notice"><p><strong>FastLayer:</strong> Cache directory is not writable. Please check permissions for: ' . esc_html( FASTLAYER_CACHE_DIR ) . '</p></div>';
         }
 
         if ( ! defined( 'WP_CACHE' ) || ! WP_CACHE ) {
@@ -85,15 +91,15 @@ class Bootstrap {
     }
 
     private function is_cache_directory_writable() {
-        $cache_dir = WP_FASTLAYER_CACHE_DIR;
+        $cache_dir = FASTLAYER_CACHE_DIR;
         if ( ! file_exists( $cache_dir ) ) {
             return wp_mkdir_p( $cache_dir );
         }
-        return is_writable( $cache_dir );
+        return wp_is_writable( $cache_dir );
     }
 
     private function is_debug_enabled() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
         return isset( $options['debug_mode'] ) && $options['debug_mode'] === '1';
     }
 
@@ -107,34 +113,34 @@ class Bootstrap {
         );
 
         foreach ( $modules as $module ) {
-            $fqcn = 'WP_FastLayer\\' . $module;
+            $fqcn = 'FastLayer\\' . $module;
             if ( class_exists( $fqcn ) ) {
                 try {
                     $fqcn::get_instance();
                 } catch ( \Throwable $e ) {
-                    error_log( 'WP FastLayer: failed to load module ' . $module . ' — ' . $e->getMessage() );
+                    \fastlayer_debug_log( 'WP FastLayer: failed to load module ' . $module . ' - ' . $e->getMessage() );
                 }
             }
         }
 
-        if ( ! class_exists( 'WP_FastLayer\\Admin' ) ) {
-            $admin_file = WP_FASTLAYER_PATH . 'includes/class-admin.php';
+        if ( ! class_exists( 'FastLayer\\Admin' ) ) {
+            $admin_file = FASTLAYER_PATH . 'includes/class-admin.php';
             if ( file_exists( $admin_file ) ) {
                 require_once $admin_file;
-                \wp_fastlayer_debug_log( 'WP FastLayer: required class-admin.php as fallback.' );
+                \fastlayer_debug_log( 'WP FastLayer: required class-admin.php as fallback.' );
             }
         }
 
-        if ( class_exists( 'WP_FastLayer\\Admin' ) ) {
-            \wp_fastlayer_debug_log( 'WP FastLayer: Admin class exists before instantiation.' );
+        if ( class_exists( 'FastLayer\\Admin' ) ) {
+            \fastlayer_debug_log( 'WP FastLayer: Admin class exists before instantiation.' );
             try {
                 Admin::get_instance();
-                \wp_fastlayer_debug_log( 'WP FastLayer: Admin class instantiated successfully.' );
+                \fastlayer_debug_log( 'WP FastLayer: Admin class instantiated successfully.' );
             } catch ( \Throwable $e ) {
-                error_log( 'WP FastLayer: failed to load Admin — ' . $e->getMessage() );
+                \fastlayer_debug_log( 'WP FastLayer: failed to load Admin - ' . $e->getMessage() );
             }
         } else {
-            \wp_fastlayer_debug_log( 'WP FastLayer: Admin class does not exist at load_modules.' );
+            \fastlayer_debug_log( 'WP FastLayer: Admin class does not exist at load_modules.' );
         }
     }
 
@@ -142,15 +148,59 @@ class Bootstrap {
         try {
             $this->create_cache_directory();
             $this->create_logs_directory();
+            $this->migrate_legacy_state();
             $this->reset_options_if_needed();
             $this->load_modules();
         } catch ( \Throwable $e ) {
-            error_log( 'WP FastLayer init error: ' . $e->getMessage() );
+            \fastlayer_debug_log( 'WP FastLayer init error: ' . $e->getMessage() );
+        }
+    }
+
+    /**
+     * One-time upgrade path for installs created with the original option
+     * naming.
+     *
+     * The option key, cron hooks and batch-lock option moved from the
+     * wp_fastlayer_* prefix to the fastlayer_* prefix. Existing, non-empty
+     * settings are copied across, and a scheduled legacy preload event is
+     * re-created under its new name instead of being left to fire with no
+     * handler. Nothing is deleted from the legacy row; the mirror hooks in the
+     * constructor keep both rows in sync until the next settings save.
+     */
+    private function migrate_legacy_state() {
+        if ( false === get_option( 'fastlayer_options', false ) ) {
+            $legacy = get_option( 'wp_fastlayer_options', array() );
+            if ( is_array( $legacy ) && ! empty( $legacy ) ) {
+                update_option( 'fastlayer_options', $legacy, false );
+            }
+        }
+
+        $legacy_cron = wp_next_scheduled( 'wp_fastlayer_preload_cache' );
+        if ( $legacy_cron ) {
+            wp_clear_scheduled_hook( 'wp_fastlayer_preload_cache' );
+            if ( ! wp_next_scheduled( 'fastlayer_preload_cache' ) ) {
+                wp_schedule_event( $legacy_cron, 'hourly', 'fastlayer_preload_cache' );
+            }
+        }
+
+        if ( wp_next_scheduled( 'wp_fastlayer_preload_batch' ) ) {
+            wp_clear_scheduled_hook( 'wp_fastlayer_preload_batch' );
+        }
+    }
+
+    /**
+     * Keeps the migrated option row in sync with writes made to the legacy
+     * wp_fastlayer_options key. Signature mirrors sync_static_config().
+     */
+    public function mirror_legacy_options( $param1, $param2 = null, $param3 = null ) {
+        $value = is_array( $param3 ) ? $param3 : $param2;
+        if ( is_array( $value ) && ! empty( $value ) ) {
+            update_option( 'fastlayer_options', $value, false );
         }
     }
 
     private function reset_options_if_needed() {
-        $options = get_option( 'wp_fastlayer_options', array() );
+        $options = get_option( 'fastlayer_options', array() );
 
         if ( ! is_array( $options ) || empty( $options ) ) {
             $this->set_default_options();
@@ -159,19 +209,21 @@ class Bootstrap {
 
         $default_options = self::get_default_options();
         $normalized_options = wp_parse_args( $options, $default_options );
-        $normalized_options['_version'] = WP_FASTLAYER_VERSION;
+        $normalized_options['_version'] = FASTLAYER_VERSION;
 
         if ( $normalized_options !== $options ) {
-            update_option( 'wp_fastlayer_options', $normalized_options );
+            update_option( 'fastlayer_options', $normalized_options );
         }
     }
 
     public function activate() {
         $this->create_cache_directory();
         $this->create_logs_directory();
-        $this->set_default_options( get_option( 'wp_fastlayer_options', array() ) );
-        if ( ! wp_next_scheduled( 'wp_fastlayer_preload_cache' ) ) {
-            wp_schedule_event( time(), 'hourly', 'wp_fastlayer_preload_cache' );
+        $this->migrate_legacy_state();
+        $this->set_default_options( get_option( 'fastlayer_options', array() ) );
+        wp_clear_scheduled_hook( 'wp_fastlayer_preload_cache' );
+        if ( ! wp_next_scheduled( 'fastlayer_preload_cache' ) ) {
+            wp_schedule_event( time(), 'hourly', 'fastlayer_preload_cache' );
         }
         self::install_advanced_cache_dropin();
         self::add_wp_cache_constant();
@@ -256,20 +308,33 @@ class Bootstrap {
             'exclude_urls' => '',
             'exclude_cookies' => '',
             'exclude_user_agents' => '',
-            '_version' => WP_FASTLAYER_VERSION
+            '_version' => FASTLAYER_VERSION
         );
     }
 
     private function set_default_options( $existing_options = array() ) {
         $options = wp_parse_args( is_array( $existing_options ) ? $existing_options : array(), self::get_default_options() );
-        $options['_version'] = WP_FASTLAYER_VERSION;
+        $options['_version'] = FASTLAYER_VERSION;
 
-        update_option( 'wp_fastlayer_options', $options );
+        update_option( 'fastlayer_options', $options );
         self::write_static_config( $options );
     }
 
+    /**
+     * Writes the static config.php used by the advanced-cache.php drop-in.
+     *
+     * The file lives in FastLayer's own cache directory and only serves as a
+     * pre-bootstrap mirror of the options row, which stays the source of truth.
+     * The target path is forced to remain inside the cache directory, and a
+     * failed or partial write is recorded instead of being silenced, so a read
+     * only directory clears the transient notice rather than silently leaving
+     * the drop-in on stale settings.
+     *
+     * @param array $options Plugin options (pre-migration form is fine too).
+     * @return bool True when the config file on disk matches the options.
+     */
     public static function write_static_config( $options ) {
-        $cache_dir = WP_FASTLAYER_CACHE_DIR;
+        $cache_dir = wp_normalize_path( FASTLAYER_CACHE_DIR );
         if ( ! file_exists( $cache_dir ) ) {
             wp_mkdir_p( $cache_dir );
         }
@@ -282,12 +347,33 @@ class Bootstrap {
         // cannot call home_url() itself. Store the canonical hosts here so the
         // drop-in can validate the client-supplied HTTP_HOST before it is used
         // in a cache key. This key exists only in the generated config file; it
-        // is never written back to the wp_fastlayer_options database row.
+        // is never written back to the fastlayer_options database row.
         $options['_home_host'] = self::get_expected_hosts();
 
-        $config_file = $cache_dir . 'config.php';
-        $content = "<?php\n// WP FastLayer static configuration file. Generated on " . date('Y-m-d H:i:s') . "\nreturn " . var_export( $options, true ) . ";\n";
-        @file_put_contents( $config_file, $content, LOCK_EX );
+        $config_file = wp_normalize_path( $cache_dir . 'config.php' );
+        if ( 0 !== strpos( $config_file, $cache_dir ) ) {
+            self::record_write_failure( 'config.php', 'the target path escaped the cache directory; no file was written.' );
+            return false;
+        }
+
+        // WordPress sets the PHP default timezone to UTC (wp-settings.php), so
+        // gmdate() produces the same timestamp date() did here while making the
+        // UTC intent explicit. The value is only a human-readable comment in the
+        // generated config file and has no functional role.
+        $content = "<?php\n// WP FastLayer static configuration file. Generated on " . gmdate( 'Y-m-d H:i:s' ) . "\nreturn " . var_export( $options, true ) . ";\n"; // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- var_export() builds the PHP array literal returned by the advanced-cache.php drop-in via include; it is not debug output.
+
+        $written = @file_put_contents( $config_file, $content, LOCK_EX );
+        if ( false === $written || strlen( $content ) !== $written ) {
+            self::record_write_failure( 'config.php', 'the file could not be written to ' . $config_file . '.' );
+            return false;
+        }
+
+        if ( file_get_contents( $config_file ) !== $content ) {
+            self::record_write_failure( 'config.php', 'the written file could not be verified at ' . $config_file . '.' );
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -308,8 +394,8 @@ class Bootstrap {
      * Keeps the generated static config in sync with the options row.
      *
      * The two hooks pass different signatures:
-     *   add_option_wp_fastlayer_options    ( $option, $value )
-     *   update_option_wp_fastlayer_options ( $option, $old_value, $value )
+     *   add_option_fastlayer_options    ( $option, $value )
+     *   update_option_fastlayer_options ( $option, $old_value, $value )
      *
      * The third argument therefore holds the new value on the update path,
      * while the second holds it on the add path. Prefer the third argument
@@ -323,10 +409,13 @@ class Bootstrap {
     }
 
     public function deactivate() {
-        wp_clear_scheduled_hook( 'wp_fastlayer_preload_cache' );
+        wp_clear_scheduled_hook( 'fastlayer_preload_cache' );
         // A batch event can be left pending when the plugin is switched off, so
         // it is cleared here too rather than firing against a disabled plugin.
         wp_clear_scheduled_hook( Page_Cache::PRELOAD_BATCH_HOOK );
+        // Also clear the legacy hook names an upgraded install may still have.
+        wp_clear_scheduled_hook( 'wp_fastlayer_preload_cache' );
+        wp_clear_scheduled_hook( 'wp_fastlayer_preload_batch' );
         self::remove_advanced_cache_dropin();
         self::remove_wp_cache_constant();
     }
@@ -347,7 +436,7 @@ class Bootstrap {
             return false;
         }
 
-        $source = WP_FASTLAYER_PATH . 'advanced-cache.php';
+        $source = FASTLAYER_PATH . 'advanced-cache.php';
         if ( is_readable( $source ) && md5_file( $file ) === md5_file( $source ) ) {
             return true;
         }
@@ -358,12 +447,13 @@ class Bootstrap {
         }
 
         // A drop-in that declares FastLayer's cache functions is ours, even if
-        // it predates the marker.
-        return false !== strpos( $head, 'function wp_fastlayer_should_skip_cache' );
+        // it predates the marker (including the legacy wp_fastlayer_* names).
+        return false !== strpos( $head, 'function fastlayer_should_skip_cache' )
+            || false !== strpos( $head, 'function wp_fastlayer_should_skip_cache' );
     }
 
     public static function install_advanced_cache_dropin() {
-        $source = WP_FASTLAYER_PATH . 'advanced-cache.php';
+        $source = FASTLAYER_PATH . 'advanced-cache.php';
         $dest   = self::ADVANCED_CACHE_DROPIN;
 
         if ( ! file_exists( $source ) ) {
@@ -372,7 +462,7 @@ class Bootstrap {
 
         // Never overwrite a drop-in owned by another caching plugin.
         if ( file_exists( $dest ) && ! self::is_our_advanced_cache_dropin( $dest ) ) {
-            \wp_fastlayer_debug_log( 'WP FastLayer: a foreign advanced-cache.php drop-in is installed; leaving it untouched.' );
+            \fastlayer_debug_log( 'WP FastLayer: a foreign advanced-cache.php drop-in is installed; leaving it untouched.' );
             return;
         }
 
@@ -382,7 +472,7 @@ class Bootstrap {
     public static function remove_advanced_cache_dropin() {
         $dest = self::ADVANCED_CACHE_DROPIN;
         if ( file_exists( $dest ) && self::is_our_advanced_cache_dropin( $dest ) ) {
-            @unlink( $dest );
+            wp_delete_file( $dest );
         }
     }
 
@@ -410,7 +500,7 @@ class Bootstrap {
             return false;
         }
 
-        if ( ! is_writable( $config_file ) ) {
+        if ( ! wp_is_writable( $config_file ) ) {
             self::record_write_failure( 'wp-config.php', 'the file is not writable, so it was not modified.' );
             return false;
         }
@@ -456,14 +546,14 @@ class Bootstrap {
 
         $written = file_put_contents( $backup, $content, LOCK_EX );
         if ( false === $written || strlen( $content ) !== $written ) {
-            @unlink( $backup );
+            wp_delete_file( $backup );
             self::record_write_failure( 'wp-config.php', 'the backup could not be written to ' . $backup . ', so the file was not modified.' );
             return false;
         }
 
         $verify = file_get_contents( $backup );
         if ( ! is_string( $verify ) || $verify !== $content ) {
-            @unlink( $backup );
+            wp_delete_file( $backup );
             self::record_write_failure( 'wp-config.php', 'the backup at ' . $backup . ' could not be verified, so the file was not modified.' );
             return false;
         }
@@ -491,20 +581,21 @@ class Bootstrap {
 
         $written = file_put_contents( $staged, $content, LOCK_EX );
         if ( false === $written || strlen( $content ) !== $written ) {
-            @unlink( $staged );
+            wp_delete_file( $staged );
             self::record_write_failure( 'wp-config.php', 'the updated file could not be staged, so wp-config.php was left unchanged.' );
             return false;
         }
 
         $verify = file_get_contents( $staged );
         if ( ! is_string( $verify ) || $verify !== $content ) {
-            @unlink( $staged );
+            wp_delete_file( $staged );
             self::record_write_failure( 'wp-config.php', 'the staged file did not match the intended content, so wp-config.php was left unchanged.' );
             return false;
         }
 
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Must stay atomic: WP_Filesystem::move() can fall back to a non-atomic copy+delete that could truncate wp-config.php; the staged file is already verified above.
         if ( ! @rename( $staged, $config_file ) ) {
-            @unlink( $staged );
+            wp_delete_file( $staged );
             self::record_write_failure( 'wp-config.php', 'the staged file could not be moved into place, so wp-config.php was left unchanged.' );
             return false;
         }
@@ -516,7 +607,7 @@ class Bootstrap {
         }
 
         // Only now is the backup redundant.
-        @unlink( $backup );
+        wp_delete_file( $backup );
         return true;
     }
 
@@ -644,7 +735,7 @@ class Bootstrap {
     }
 
     private function create_cache_directory() {
-        $cache_dir = WP_FASTLAYER_CACHE_DIR;
+        $cache_dir = FASTLAYER_CACHE_DIR;
         if ( ! file_exists( $cache_dir ) ) {
             wp_mkdir_p( $cache_dir );
         }
@@ -665,6 +756,70 @@ class Bootstrap {
         return $this->log_file;
     }
 
+    /**
+     * Returns an initialised WP_Filesystem instance, or false when unavailable.
+     *
+     * Initialised once per request and cached, because WP_Filesystem() performs
+     * a write test on every call.
+     *
+     * @return \WP_Filesystem_Base|false
+     */
+    private static function get_filesystem() {
+        static $filesystem = null;
+
+        if ( null !== $filesystem ) {
+            return $filesystem;
+        }
+
+        $filesystem = false;
+        global $wp_filesystem;
+
+        if ( ! ( $wp_filesystem instanceof \WP_Filesystem_Base ) ) {
+            if ( ! function_exists( 'WP_Filesystem' ) ) {
+                $filesystem_file = ABSPATH . 'wp-admin/includes/file.php';
+                if ( ! file_exists( $filesystem_file ) ) {
+                    return $filesystem;
+                }
+                require_once $filesystem_file;
+            }
+
+            if ( ! WP_Filesystem() ) {
+                return $filesystem;
+            }
+        }
+
+        if ( $wp_filesystem instanceof \WP_Filesystem_Base ) {
+            $filesystem = $wp_filesystem;
+        }
+
+        return $filesystem;
+    }
+
+    /**
+     * Removes an empty directory through the WordPress filesystem API.
+     *
+     * rmdir() is not called directly: WP_Filesystem is the supported filesystem
+     * abstraction (and what the WordPress.org Plugin Check expects). When the
+     * filesystem cannot be initialised the directory is left in place rather
+     * than falling back to a raw PHP call.
+     *
+     * @param string $directory Absolute path to the (empty) directory.
+     * @return bool True when the directory was removed.
+     */
+    public static function delete_empty_directory( $directory ) {
+        $directory = wp_normalize_path( (string) $directory );
+        if ( '' === $directory || ! is_dir( $directory ) ) {
+            return false;
+        }
+
+        $filesystem = self::get_filesystem();
+        if ( false === $filesystem ) {
+            return false;
+        }
+
+        return (bool) $filesystem->rmdir( $directory );
+    }
+
     private function create_logs_directory() {
         $this->get_log_file();
 
@@ -673,13 +828,13 @@ class Bootstrap {
             @file_put_contents( $log_file, '' );
         }
 
-        $old_log_dir = WP_FASTLAYER_PATH . 'logs/';
+        $old_log_dir = FASTLAYER_PATH . 'logs/';
         if ( is_dir( $old_log_dir ) ) {
             $old_log_file = $old_log_dir . 'performance.log';
             if ( file_exists( $old_log_file ) ) {
-                @unlink( $old_log_file );
+                wp_delete_file( $old_log_file );
             }
-            @rmdir( $old_log_dir );
+            self::delete_empty_directory( $old_log_dir );
         }
     }
 
@@ -704,7 +859,7 @@ class Bootstrap {
     public function clear_logs() {
         $log_file = $this->get_log_file();
         if ( file_exists( $log_file ) ) {
-            @unlink( $log_file );
+            wp_delete_file( $log_file );
         }
     }
 }

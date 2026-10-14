@@ -1,5 +1,5 @@
 <?php
-namespace WP_FastLayer;
+namespace FastLayer;
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -133,12 +133,12 @@ class Page_Cache {
     const PRELOAD_MAX_RECORDED_ERRORS = 20;
 
     /** Cron hook that warms one batch. Public so deactivation can clear it. */
-    const PRELOAD_BATCH_HOOK = 'wp_fastlayer_preload_batch';
+    const PRELOAD_BATCH_HOOK = 'fastlayer_preload_batch';
 
     /** Option names holding the job state and the two locks. */
-    const PRELOAD_STATE_OPTION      = 'wp_fastlayer_preload_state';
-    const PRELOAD_LOCK_OPTION       = 'wp_fastlayer_preload_lock';
-    const PRELOAD_BATCH_LOCK_OPTION = 'wp_fastlayer_preload_batch_lock';
+    const PRELOAD_STATE_OPTION      = 'fastlayer_preload_state';
+    const PRELOAD_LOCK_OPTION       = 'fastlayer_preload_lock';
+    const PRELOAD_BATCH_LOCK_OPTION = 'fastlayer_preload_batch_lock';
 
     private $preload_state_option = self::PRELOAD_STATE_OPTION;
     private $preload_lock_option  = self::PRELOAD_LOCK_OPTION;
@@ -161,12 +161,12 @@ class Page_Cache {
     }
 
     private function __construct() {
-        $this->cache_dir = WP_FASTLAYER_CACHE_DIR;
+        $this->cache_dir = FASTLAYER_CACHE_DIR;
         $this->debug_trace['cache_init'] = true;
         $this->debug_trace['cache_dir'] = \wp_normalize_path( $this->cache_dir );
 
-        \wp_fastlayer_debug_log( 'WP FastLayer: Page_Cache constructor initializing.' );
-        \wp_fastlayer_debug_log( 'WP FastLayer: Cache directory is ' . \wp_normalize_path( $this->cache_dir ) );
+        \fastlayer_debug_log( 'WP FastLayer: Page_Cache constructor initializing.' );
+        \fastlayer_debug_log( 'WP FastLayer: Cache directory is ' . \wp_normalize_path( $this->cache_dir ) );
 
         \add_action( 'template_redirect', array( $this, 'maybe_serve_cache' ), 1 );
         \add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_debug_script' ), 9999 );
@@ -183,10 +183,10 @@ class Page_Cache {
         \add_action( 'edit_term', array( $this, 'clear_all_cache' ), 10, 3 );
         \add_action( 'delete_term', array( $this, 'clear_all_cache' ), 10, 3 );
 
-        \add_action( 'wp_fastlayer_preload_cache', array( $this, 'preload_cache' ) );
+        \add_action( 'fastlayer_preload_cache', array( $this, 'preload_cache' ) );
         \add_action( $this->preload_batch_hook, array( $this, 'process_preload_batch' ) );
 
-        \wp_fastlayer_debug_log( 'WP FastLayer: Page_Cache hooks registered.' );
+        \fastlayer_debug_log( 'WP FastLayer: Page_Cache hooks registered.' );
     }
 
     public function maybe_serve_cache() {
@@ -197,54 +197,55 @@ class Page_Cache {
         $this->debug_trace['cache_file'] = '';
         $this->debug_trace['save_result'] = '';
 
-        \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache started for URL: ' . $url );
+        \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache started for URL: ' . $url );
         $skip_reasons = array();
 
         if ( ! $this->is_cache_enabled() ) {
             $skip_reasons[] = 'cache_disabled';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition cache_disabled.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition cache_disabled.' );
         }
         if ( \is_user_logged_in() ) {
             $skip_reasons[] = 'user_logged_in';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition user_logged_in.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition user_logged_in.' );
         }
         if ( \wp_doing_ajax() ) {
             $skip_reasons[] = 'ajax';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition ajax.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition ajax.' );
         }
         if ( \wp_doing_cron() ) {
             $skip_reasons[] = 'cron';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition cron.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition cron.' );
         }
         if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
             $skip_reasons[] = 'rest_request';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition rest_request.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition rest_request.' );
         }
         if ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST ) {
             $skip_reasons[] = 'xmlrpc';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition xmlrpc.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition xmlrpc.' );
         }
-        if ( isset( $_SERVER['REQUEST_METHOD'] ) && in_array( $_SERVER['REQUEST_METHOD'], array( 'POST', 'HEAD' ), true ) ) {
-            $skip_reasons[] = 'method_' . strtoupper( $_SERVER['REQUEST_METHOD'] );
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition method_' . strtoupper( $_SERVER['REQUEST_METHOD'] ) . '.' );
+        $request_method = $this->get_request_method();
+        if ( in_array( $request_method, array( 'POST', 'HEAD' ), true ) ) {
+            $skip_reasons[] = 'method_' . $request_method;
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition method_' . $request_method . '.' );
         }
         if ( \is_admin() ) {
             $skip_reasons[] = 'is_admin';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition is_admin.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition is_admin.' );
         }
         if ( ! $this->is_request_host_trusted() ) {
             $skip_reasons[] = 'untrusted_host';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition untrusted_host.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition untrusted_host.' );
         }
         if ( $this->should_skip_cache() ) {
             $skip_reasons[] = 'should_skip_cache';
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition should_skip_cache.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skip condition should_skip_cache.' );
         }
 
         if ( ! empty( $skip_reasons ) ) {
             $this->debug_trace['skip_reason'] = implode( ', ', $skip_reasons );
             $this->persist_debug_trace();
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skipping cache for URL: ' . $url . ' ; reasons: ' . implode( ', ', $skip_reasons ) );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache skipping cache for URL: ' . $url . ' ; reasons: ' . implode( ', ', $skip_reasons ) );
             return;
         }
 
@@ -253,42 +254,42 @@ class Page_Cache {
         $cache_file = $this->get_cache_file();
         $this->debug_trace['cache_file'] = \wp_normalize_path( $cache_file );
         $this->debug_trace['cache_dir'] = \wp_normalize_path( $this->cache_dir );
-        \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache cache candidate path: ' . \wp_normalize_path( $cache_file ) );
+        \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache cache candidate path: ' . \wp_normalize_path( $cache_file ) );
 
         if ( file_exists( $cache_file ) ) {
             if ( $this->is_cache_expired( $cache_file ) ) {
-                @unlink( $cache_file );
+                wp_delete_file( $cache_file );
                 $this->debug_trace['save_result'] = 'expired_removed';
                 $this->persist_debug_trace();
-                \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache expired cache removed: ' . \wp_normalize_path( $cache_file ) );
+                \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache expired cache removed: ' . \wp_normalize_path( $cache_file ) );
             } else {
                 $this->debug_trace['save_result'] = 'serving_cache';
                 $this->persist_debug_trace();
-                \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache serving cache file: ' . \wp_normalize_path( $cache_file ) );
+                \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache serving cache file: ' . \wp_normalize_path( $cache_file ) );
                 $this->serve_cache( $cache_file );
                 return;
             }
         }
 
         if ( ! $this->buffer_started ) {
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache starting output buffer for URL: ' . $url );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache starting output buffer for URL: ' . $url );
             \ob_start( array( $this, 'capture_output_buffer' ) );
             $this->buffer_level = \ob_get_level();
             $this->buffer_started = true;
             $this->debug_trace['buffer_started'] = true;
             $this->persist_debug_trace();
         } else {
-            \wp_fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache output buffer already active.' );
+            \fastlayer_debug_log( 'WP FastLayer: maybe_serve_cache output buffer already active.' );
         }
     }
 
     private function is_cache_enabled() {
-        $options = \get_option( 'wp_fastlayer_options', array() );
+        $options = \get_option( 'fastlayer_options', array() );
         return isset( $options['enable_cache'] ) && '1' === $options['enable_cache'];
     }
 
     private function should_skip_cache() {
-        if ( ! empty( $_SERVER['HTTP_X_FASTLAYER_PRELOAD'] ) ) {
+        if ( ! empty( $_SERVER['HTTP_X_FASTLAYER_PRELOAD'] ) && is_scalar( $_SERVER['HTTP_X_FASTLAYER_PRELOAD'] ) ) {
             return true;
         }
 
@@ -314,7 +315,7 @@ class Page_Cache {
             '/feed/',
         );
 
-        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? \esc_url_raw( \wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+        $request_uri = ( isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ) ? \esc_url_raw( \wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
         foreach ( $skip_paths as $path ) {
             if ( false !== strpos( $request_uri, $path ) ) {
                 return true;
@@ -341,24 +342,24 @@ class Page_Cache {
         $cache_key = $this->generate_cache_key( $url );
         $cache_file = \trailingslashit( \wp_normalize_path( $this->cache_dir ) ) . $cache_key . '.html';
 
-        \wp_fastlayer_debug_log( 'WP FastLayer: get_cache_file generated file path: ' . \wp_normalize_path( $cache_file ) );
+        \fastlayer_debug_log( 'WP FastLayer: get_cache_file generated file path: ' . \wp_normalize_path( $cache_file ) );
         return $cache_file;
     }
 
     private function get_cache_expiration() {
-        $options = \get_option( 'wp_fastlayer_options', array() );
+        $options = \get_option( 'fastlayer_options', array() );
         $hours = isset( $options['cache_expiration'] ) ? \absint( $options['cache_expiration'] ) : 10;
         return max( 1, $hours ) * HOUR_IN_SECONDS;
     }
 
     private function is_excluded_url( $request_uri ) {
-        $options = \get_option( 'wp_fastlayer_options', array() );
+        $options = \get_option( 'fastlayer_options', array() );
         $patterns = isset( $options['exclude_urls'] ) ? \preg_split( '/\r?\n/', trim( $options['exclude_urls'] ) ) : array();
         return $this->is_excluded_by_patterns( $request_uri, $patterns );
     }
 
     private function has_excluded_cookie() {
-        $options = \get_option( 'wp_fastlayer_options', array() );
+        $options = \get_option( 'fastlayer_options', array() );
         $patterns = isset( $options['exclude_cookies'] ) ? \preg_split( '/\r?\n/', trim( $options['exclude_cookies'] ) ) : array();
 
         foreach ( $patterns as $pattern ) {
@@ -385,7 +386,7 @@ class Page_Cache {
      * hosts stored in the static config, so both cache paths agree.
      */
     private function is_request_host_trusted() {
-        $host = isset( $_SERVER['HTTP_HOST'] ) ? \strtolower( \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_HOST'] ) ) ) : '';
+        $host = ( isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ) ? \strtolower( \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_HOST'] ) ) ) : '';
         $colon = \strpos( $host, ':' );
         if ( false !== $colon ) {
             $host = \substr( $host, 0, $colon );
@@ -415,9 +416,9 @@ class Page_Cache {
     }
 
     private function is_excluded_user_agent() {
-        $options = \get_option( 'wp_fastlayer_options', array() );
+        $options = \get_option( 'fastlayer_options', array() );
         $patterns = isset( $options['exclude_user_agents'] ) ? \preg_split( '/\r?\n/', trim( $options['exclude_user_agents'] ) ) : array();
-        $user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? \wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) : '';
+        $user_agent = ( isset( $_SERVER['HTTP_USER_AGENT'] ) && is_string( $_SERVER['HTTP_USER_AGENT'] ) ) ? \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
 
         return $this->is_excluded_by_patterns( $user_agent, $patterns );
     }
@@ -464,8 +465,8 @@ class Page_Cache {
 
     private function get_current_url() {
         $protocol    = \is_ssl() ? 'https' : 'http';
-        $host        = isset( $_SERVER['HTTP_HOST'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
-        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? \esc_url_raw( \wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+        $host        = ( isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ) ? \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
+        $request_uri = ( isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ) ? \esc_url_raw( \wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
 
         return $protocol . '://' . $host . $request_uri;
     }
@@ -490,6 +491,7 @@ class Page_Cache {
             header( 'Cache-Control: public, max-age=' . $expiration . ', s-maxage=' . $expiration );
             header( 'X-Cache-Generated: yes' );
         }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- WP_Filesystem cannot stream; get_contents() would load the whole cached page into memory. readfile() streams the verified cache file and the request ends here.
         readfile( $file );
         exit;
     }
@@ -501,89 +503,90 @@ class Page_Cache {
         $this->debug_trace['shutdown_triggered'] = true;
         $this->debug_trace['save_cache_started'] = true;
 
-        \wp_fastlayer_debug_log( 'WP FastLayer: save_cache started for URL: ' . $url );
+        \fastlayer_debug_log( 'WP FastLayer: save_cache started for URL: ' . $url );
         $skip_reasons = array();
 
         if ( ! $this->is_cache_enabled() ) {
             $skip_reasons[] = 'cache_disabled';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition cache_disabled.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition cache_disabled.' );
         }
         if ( ! $this->buffer_started ) {
             $skip_reasons[] = 'buffer_not_started';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition buffer_not_started.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition buffer_not_started.' );
         }
         if ( \is_user_logged_in() ) {
             $skip_reasons[] = 'user_logged_in';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition user_logged_in.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition user_logged_in.' );
         }
         if ( \wp_doing_ajax() ) {
             $skip_reasons[] = 'ajax';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition ajax.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition ajax.' );
         }
         if ( \wp_doing_cron() ) {
             $skip_reasons[] = 'cron';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition cron.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition cron.' );
         }
         if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
             $skip_reasons[] = 'rest_request';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition rest_request.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition rest_request.' );
         }
         if ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST ) {
             $skip_reasons[] = 'xmlrpc';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition xmlrpc.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition xmlrpc.' );
         }
-        if ( isset( $_SERVER['REQUEST_METHOD'] ) && in_array( $_SERVER['REQUEST_METHOD'], array( 'POST', 'HEAD' ), true ) ) {
-            $skip_reasons[] = 'method_' . strtoupper( $_SERVER['REQUEST_METHOD'] );
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition method_' . strtoupper( $_SERVER['REQUEST_METHOD'] ) . '.' );
+        $request_method = $this->get_request_method();
+        if ( in_array( $request_method, array( 'POST', 'HEAD' ), true ) ) {
+            $skip_reasons[] = 'method_' . $request_method;
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition method_' . $request_method . '.' );
         }
         if ( \is_admin() ) {
             $skip_reasons[] = 'is_admin';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition is_admin.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition is_admin.' );
         }
         if ( ! $this->is_request_host_trusted() ) {
             $skip_reasons[] = 'untrusted_host';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition untrusted_host.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition untrusted_host.' );
         }
         if ( $this->should_skip_cache() ) {
             $skip_reasons[] = 'should_skip_cache';
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skip condition should_skip_cache.' );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skip condition should_skip_cache.' );
         }
 
         if ( ! empty( $skip_reasons ) ) {
             $this->debug_trace['skip_reason'] = implode( ', ', $skip_reasons );
             $this->persist_debug_trace();
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skipping save for URL: ' . $url . ' ; reasons: ' . implode( ', ', $skip_reasons ) );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skipping save for URL: ' . $url . ' ; reasons: ' . implode( ', ', $skip_reasons ) );
             return;
         }
 
         if ( \is_404() || \is_search() ) {
             $this->debug_trace['skip_reason'] = \is_404() ? '404' : 'search';
             $this->persist_debug_trace();
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache skipping save for 404/search URL: ' . $url );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache skipping save for 404/search URL: ' . $url );
             return;
         }
 
         $cache_file = $this->get_cache_file();
         $this->debug_trace['cache_file'] = \wp_normalize_path( $cache_file );
         $this->debug_trace['cache_dir'] = \wp_normalize_path( $this->cache_dir );
-        \wp_fastlayer_debug_log( 'WP FastLayer: save_cache attempting to save cache file: ' . \wp_normalize_path( $cache_file ) );
+        \fastlayer_debug_log( 'WP FastLayer: save_cache attempting to save cache file: ' . \wp_normalize_path( $cache_file ) );
 
         if ( ! \is_dir( $this->cache_dir ) ) {
             $mkdir_result = \wp_mkdir_p( $this->cache_dir );
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache cache directory creation result: ' . ( $mkdir_result ? 'success' : 'failure' ) . ' ; dir: ' . \wp_normalize_path( $this->cache_dir ) );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache cache directory creation result: ' . ( $mkdir_result ? 'success' : 'failure' ) . ' ; dir: ' . \wp_normalize_path( $this->cache_dir ) );
         }
 
-        if ( ! is_dir( $this->cache_dir ) || ! is_writable( $this->cache_dir ) ) {
+        if ( ! is_dir( $this->cache_dir ) || ! wp_is_writable( $this->cache_dir ) ) {
             $this->debug_trace['save_result'] = 'cache_dir_unavailable';
             $this->persist_debug_trace();
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache cache directory unavailable or not writable: ' . \wp_normalize_path( $this->cache_dir ) );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache cache directory unavailable or not writable: ' . \wp_normalize_path( $this->cache_dir ) );
             return;
         }
 
         if ( ! $this->is_safe_path( $cache_file ) ) {
             $this->debug_trace['save_result'] = 'unsafe_path';
             $this->persist_debug_trace();
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache unsafe cache path prevented write: ' . \wp_normalize_path( $cache_file ) );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache unsafe cache path prevented write: ' . \wp_normalize_path( $cache_file ) );
             return;
         }
 
@@ -606,7 +609,7 @@ class Page_Cache {
         if ( ! $content ) {
             $this->debug_trace['save_result'] = 'empty_buffer';
             $this->persist_debug_trace();
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache no buffer content available for URL: ' . $url );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache no buffer content available for URL: ' . $url );
             return;
         }
 
@@ -615,7 +618,7 @@ class Page_Cache {
             $error = error_get_last();
             $this->debug_trace['save_result'] = 'write_failure';
             $this->persist_debug_trace();
-            \wp_fastlayer_debug_log( 'WP FastLayer: save_cache failed to write cache file: ' . \wp_normalize_path( $cache_file ) . ' ; error: ' . ( $error['message'] ?? 'unknown' ) );
+            \fastlayer_debug_log( 'WP FastLayer: save_cache failed to write cache file: ' . \wp_normalize_path( $cache_file ) . ' ; error: ' . ( $error['message'] ?? 'unknown' ) );
             return;
         }
 
@@ -623,19 +626,21 @@ class Page_Cache {
         $this->debug_trace['save_result'] = 'wrote_cache';
         $this->debug_trace['cache_file'] = \wp_normalize_path( $cache_file );
         $this->persist_debug_trace();
-        \wp_fastlayer_debug_log( 'WP FastLayer: save_cache wrote cache file: ' . \wp_normalize_path( $cache_file ) . ' (' . \size_format( $written ) . ') ; exists: ' . $exists );
+        \fastlayer_debug_log( 'WP FastLayer: save_cache wrote cache file: ' . \wp_normalize_path( $cache_file ) . ' (' . \size_format( $written ) . ') ; exists: ' . $exists );
     }
 
+    /**
+     * Stores the latest request trace in the admin-visible transient.
+     *
+     * The value is read back by the admin debug panel through get_transient()
+     * and is left to expire after 300 seconds so it always reflects the most
+     * recent request.
+     */
     private function persist_debug_trace() {
         $trace = $this->debug_trace;
         $trace['updated_at'] = \time();
 
-        if ( function_exists( 'update_transient' ) ) {
-            \update_transient( 'wp_fastlayer_cache_debug_trace', $trace, 300 );
-            return;
-        }
-
-        \wp_fastlayer_debug_log( 'WP FastLayer: update_transient() unavailable while persisting cache debug trace.' );
+        \set_transient( 'fastlayer_cache_debug_trace', $trace, 300 );
     }
 
     public function capture_output_buffer( $buffer ) {
@@ -651,7 +656,7 @@ class Page_Cache {
     }
 
     private function get_accept_cache_variant() {
-        $accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? strtolower( (string) \wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
+        $accept = ( isset( $_SERVER['HTTP_ACCEPT'] ) && is_string( $_SERVER['HTTP_ACCEPT'] ) ) ? strtolower( \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) ) : '';
 
         if ( false !== strpos( $accept, 'image/avif' ) ) {
             return 'accept-avif';
@@ -662,6 +667,25 @@ class Page_Cache {
         }
 
         return 'accept-legacy';
+    }
+
+    /**
+     * Returns the current HTTP request method, upper-cased.
+     *
+     * WordPress runs magic quotes over $_SERVER (wp_magic_quotes()), so the raw
+     * value is slashed; it is unslashed and sanitized here, matching the plugin
+     * input-handling rule and the equivalent read in Webp::send_webp_file().
+     * The value is only compared against POST/HEAD and written into the
+     * admin-visible debug trace, so normalizing it does not change behavior.
+     *
+     * @return string Upper-cased method, or an empty string when unavailable.
+     */
+    private function get_request_method() {
+        if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || ! is_string( $_SERVER['REQUEST_METHOD'] ) ) {
+            return '';
+        }
+
+        return strtoupper( \sanitize_text_field( \wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) );
     }
 
     private function send_accept_vary_header() {
@@ -690,7 +714,7 @@ class Page_Cache {
             'last_hook' => $this->debug_trace['last_hook'] ?? '',
         );
 
-        \wp_fastlayer_debug_log( 'WP FastLayer: enqueue_frontend_debug_script registering browser console debug.' );
+        \fastlayer_debug_log( 'WP FastLayer: enqueue_frontend_debug_script registering browser console debug.' );
 
         // Every trace value above is populated by maybe_serve_cache() on
         // template_redirect, which runs before wp_enqueue_scripts, so the payload
@@ -701,9 +725,9 @@ class Page_Cache {
         }
         $lines .= 'console.groupEnd();';
 
-        \wp_register_script( 'wp-fastlayer-cache-debug', false, array(), WP_FASTLAYER_VERSION, array( 'in_footer' => true ) );
-        \wp_enqueue_script( 'wp-fastlayer-cache-debug' );
-        \wp_add_inline_script( 'wp-fastlayer-cache-debug', $lines );
+        \wp_register_script( 'fastlayer-cache-debug', false, array(), FASTLAYER_VERSION, array( 'in_footer' => true ) );
+        \wp_enqueue_script( 'fastlayer-cache-debug' );
+        \wp_add_inline_script( 'fastlayer-cache-debug', $lines );
     }
 
     private function is_safe_path( $path ) {
@@ -786,7 +810,7 @@ class Page_Cache {
         $files = $this->get_cache_files();
         foreach ( $files as $file ) {
             if ( $this->is_safe_to_delete( $file ) ) {
-                @unlink( $file );
+                wp_delete_file( $file );
             }
         }
     }
@@ -829,7 +853,7 @@ class Page_Cache {
             $cache_key  = $this->generate_cache_key( $url, $variant );
             $cache_file = $this->cache_dir . $cache_key . '.html';
             if ( file_exists( $cache_file ) ) {
-                @unlink( $cache_file );
+                wp_delete_file( $cache_file );
             }
         }
     }
@@ -1096,7 +1120,7 @@ class Page_Cache {
             wp_die( esc_html__( 'You do not have permission to perform this action.', 'fastlayer' ) );
         }
 
-        check_admin_referer( 'wp_fastlayer_preload_nonce' );
+        check_admin_referer( 'fastlayer_preload_nonce' );
 
         $status = $this->preload_cache( 'manual' );
 
@@ -1114,7 +1138,7 @@ class Page_Cache {
     }
 
     private function is_preload_enabled() {
-        $options = \get_option( 'wp_fastlayer_options', array() );
+        $options = \get_option( 'fastlayer_options', array() );
         return isset( $options['enable_preload'] ) && '1' === $options['enable_preload'];
     }
 
