@@ -16,7 +16,9 @@ FastLayer is a performance plugin that brings page caching, code optimization, i
 
 It is built for typical WordPress sites, such as blogs, business sites and WooCommerce stores. Every feature is off by default and can be switched on independently, and FastLayer only writes to files it created itself, so it will not overwrite another plugin's cache drop-in or configuration line.
 
-= Highlights =
+> **Everything is off by default.** Turn on one feature at a time and check the front end after each change, so you always know what made the difference.
+
+== Highlights ==
 
 * **Page caching** that serves static HTML to anonymous visitors, with optional background preloading.
 * **Asset optimization** for HTML, CSS and JavaScript: minify, combine, defer and delay.
@@ -91,10 +93,11 @@ Keeps FastLayer away from anything that must stay untouched, and explains cache 
 
 FastLayer installs like any other WordPress plugin.
 
+> On activation, FastLayer installs its `advanced-cache.php` drop-in and adds `define( 'WP_CACHE', true );` to `wp-config.php` so page caching can work. Both changes are undone automatically when you deactivate the plugin.
+
 1. In your WordPress admin, open Plugins > Add New, search for "FastLayer", then click Install Now and Activate.
 2. To install manually, upload the `fastlayer` folder to `/wp-content/plugins/` and activate the plugin from the Plugins screen.
-3. On activation, FastLayer installs its `advanced-cache.php` drop-in and adds `define( 'WP_CACHE', true );` to `wp-config.php` so page caching can work.
-4. Open **FastLayer** in the admin menu. The Dashboard shows cache status, a cached-pages count and quick actions.
+3. Open **FastLayer** in the admin menu. The Dashboard shows cache status, a cached-pages count and quick actions.
 
 = Recommended configuration =
 
@@ -122,7 +125,8 @@ Enable features one group at a time and check the front end after each change.
 
 FastLayer is built to sit alongside the plugins and themes you already run.
 
-* **Other caching and optimization plugins:** run one page-cache engine and one minify engine per site to avoid conflicting output.
+> **Run one page-cache engine and one minify engine per site.** Two plugins doing the same job can produce conflicting output.
+
 * **Page builders and e-commerce:** Smart JS Delay keeps critical dependencies, Elementor and WooCommerce checkout/cart, and navigation scripts running immediately; exclusions and Safe Mode cover anything left over.
 * **Servers:** Apache and LiteSpeed apply the `.htaccess` rules directly, while nginx needs a manual server-level WebP rule. Page caching and asset optimization work on nginx, and FastLayer shows an admin notice with guidance when it detects nginx.
 * **Multisite:** not currently supported.
