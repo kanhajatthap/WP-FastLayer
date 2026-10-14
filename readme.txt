@@ -8,145 +8,131 @@ License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Requires PHP: 7.4
 
-FastLayer speeds up WordPress with page caching, CSS/JS minification, lazy loading, WebP conversion, CDN delivery and database cleanup.
+FastLayer makes WordPress faster with page caching, CSS/JS optimization, image optimization, lazy loading, WebP conversion and database cleanup.
 
 == Description ==
 
-FastLayer is a lightweight performance plugin that brings the most common WordPress speed tools together in one place. Page caching, HTML/CSS/JS optimization, image optimization, CDN delivery and database cleanup all live under a single **FastLayer** menu in the admin.
+FastLayer is a performance plugin for WordPress sites that need to load faster without juggling several separate tools. It brings page caching, code optimization, image delivery and database cleanup together under one **FastLayer** menu, so you can speed up a site in minutes.
 
-Every main feature starts disabled, so you enable only what your site needs. Before FastLayer changes anything outside the plugin folder, it checks that it owns the file first, so it will not overwrite a cache drop-in or a configuration line that belongs to another plugin.
+It is built for typical WordPress sites, such as blogs, brochure sites and WooCommerce stores, on the hosting you already use. Every feature is off by default, and FastLayer only writes to files it created itself, so it will not overwrite another plugin's cache drop-in or configuration line.
 
-= Why FastLayer =
+= Highlights =
 
-* **Everything in one place.** Cache, assets, images and the database are organized into clear, predictable settings pages.
-* **Safe by default.** Page caching, minification, lazy loading, WebP conversion and the CDN are off until you turn them on.
-* **Built for compatibility.** Exclude URLs, cookies, user agents, and individual CSS/JS files when a theme or plugin needs to be left alone.
-* **Works with page builders.** When Smart JS Delay is enabled, it keeps critical dependencies, Elementor front-end and WooCommerce checkout/cart scripts, plus navigation, running immediately while the rest of the page is optimized.
+* **Page caching** with optional background preloading.
+* **HTML, CSS and JavaScript** minification, combination and deferral.
+* **WebP conversion** and responsive image delivery.
+* **Lazy loading** with low-quality image placeholders.
+* **Optional ImageKit CDN** for image delivery.
+* **Database cleanup** for revisions, transients and orphaned data.
 
-== Features ==
+== Included features ==
 
-FastLayer groups its tools by area. Each area has its own settings screen, and every feature can be turned on or off independently.
+Every tool has its own settings screen and can be enabled independently.
 
-= Page cache =
+= Page caching =
 
-* Serve cached static HTML to anonymous visitors, so repeat visits are answered without running WordPress on every request.
-* Choose how long a cached page is kept before it is cleared automatically (1 to 720 hours).
-* Clear the cache at any time from the **FastLayer** admin-bar menu or the plugin's Dashboard.
-* Not cached automatically: logged-in users, the admin area, AJAX and REST requests, previews, 404 pages, search results, and POST or HEAD requests.
+* Serves cached static HTML to anonymous visitors, so repeat visits are answered without running WordPress on every request.
+* Keeps a cached page for a set time before clearing it automatically (1 to 720 hours).
+* Warms the cache in the background after a clear, so visitors are less likely to hit a cold cache.
+* Discovers pages to preload from your XML sitemap (the WordPress core sitemap, Yoast SEO or All in One SEO), with built-in limits so a large or slow sitemap cannot stall the job.
+* Runs preloading in background batches, and lets you start it manually at any time.
+* Clears the cache at any time from the **FastLayer** admin-bar menu or the plugin Dashboard.
+* Never caches logged-in users, the admin area, AJAX and REST requests, previews, 404 pages, search results, or POST and HEAD requests.
 
-= Cache preloading =
+= HTML, CSS and JavaScript =
 
-* Warm the cache in the background after it has been cleared, so visitors are less likely to hit a cold cache.
-* Pages are discovered from your site's XML sitemap (the WordPress core sitemap, Yoast SEO or All in One SEO), with built-in limits so a large or slow sitemap cannot stall the job.
-* Preloading runs in background batches and can also be started manually at any time.
-
-= HTML optimization =
-
-* Minify HTML by removing comments and collapsing extra whitespace.
-* Optionally keep Gutenberg block comments so block markup stays intact.
-
-= CSS optimization =
-
-* Minify CSS files and optionally remove comments.
-* Combine multiple stylesheets to reduce requests while preserving media-specific styles.
-* Optimize CSS delivery so styles no longer block rendering.
-* Inline critical CSS, with a custom critical CSS box and a one-click sample generator.
-* Smart Gutenberg CSS optimization and `display=swap` for Google Fonts.
-* Exclude individual CSS files by path, pattern or external domain.
-
-= JavaScript optimization =
-
-* Minify JavaScript files and optionally remove comments.
-* Combine scripts, or defer and/or async-load eligible scripts to reduce render blocking.
+* Minifies HTML by removing comments and collapsing extra whitespace, optionally keeping Gutenberg block comments so block markup stays intact.
+* Minifies CSS and JavaScript files, and optionally removes comments.
+* Combines stylesheets and scripts to reduce requests while preserving media-specific styles.
+* Optimizes CSS delivery so styles no longer block rendering, and can inline critical CSS with a custom critical CSS box and a one-click sample generator.
+* Applies Smart Gutenberg CSS optimization and `display=swap` for Google Fonts.
+* Defers and/or async-loads eligible scripts to reduce render blocking.
 * Smart JS Delay waits for the first user interaction before running eligible non-critical scripts, and restores them after a configurable timeout so nothing is left unloaded.
-* Safe Mode and exclusion lists (by handle, keyword or pattern) for scripts that must stay untouched.
+* Safe Mode and exclusion lists (by handle, keyword or pattern) keep chosen scripts untouched.
 
-= Images and media =
+= Images, WebP and lazy loading =
 
-* Convert JPEG and PNG attachments to WebP, either automatically or in resumable batches for images that already exist.
-* Improve image delivery by serving optimized responsive sizes and WebP variants.
-* Lazy load images, iframes (YouTube, Vimeo and others) and HTML5 videos.
-* Progressive image loading with low-quality image placeholders (LQIP), including placeholder width, quality, blur strength and fade duration controls.
+* Converts JPEG and PNG attachments to WebP, either automatically on upload or in resumable batches for images that already exist.
+* Improves image delivery by serving optimized responsive sizes and WebP variants.
+* Lazy loads images, iframes (YouTube, Vimeo and others) and HTML5 videos.
+* Adds progressive image loading with low-quality image placeholders (LQIP), including placeholder width, quality, blur strength and fade duration controls.
 * Smart LCP optimization detects one above-the-fold hero image or background and prioritizes it without disabling lazy loading everywhere. LCP preload hints, hero background support and debug logging are also available.
 
-= CDN and image delivery =
+= CDN and optional ImageKit =
 
-* Rewrite internal asset URLs to a CDN hostname you configure.
-* Optional ImageKit integration for image delivery. Only your ImageKit endpoint is stored; no API keys are requested or saved. See the External Services section for exactly what is sent, and by whom.
+* Rewrites internal asset URLs to a CDN hostname you configure.
+* Optionally delivers images through ImageKit. Only your ImageKit endpoint is stored; no API keys are requested or saved. See External Services for exactly what is sent, and by whom.
 
 = Database cleanup =
 
-* Optimize database tables and remove post revisions, trashed posts, spam comments and auto-drafts.
-* Remove expired or all transients, oEmbed cache rows, and duplicate or orphaned post, comment, user and term metadata.
-* Review the item counts before cleaning, and use the Clean All control to select every option at once.
+* Optimizes database tables and removes post revisions, trashed posts, spam comments and auto-drafts.
+* Removes expired or all transients, oEmbed cache rows, and duplicate or orphaned post, comment, user and term metadata.
+* Shows item counts before cleaning and offers a Clean All control to select every option at once.
 
-= Advanced rules and diagnostics =
+= Exclusions and diagnostics =
 
-* Exclude URLs, cookies and user agents from caching.
-* Debug logging for cache decisions, Smart LCP and Smart JS Delay.
-* FastLayer admin-bar actions: Clear All Cache, Clear CSS/JS Cache and Preload Cache.
+* Excludes URLs, cookies and user agents from caching.
+* Excludes individual CSS and JS files by path, pattern or external domain.
+* Provides debug logging for cache decisions, Smart LCP and Smart JS Delay.
+* Adds admin-bar actions: Clear All Cache, Clear CSS/JS Cache and Preload Cache.
 
 == Installation ==
 
-1. In your WordPress admin, open the Plugins screen, click Add New, search for "FastLayer", then click Install Now and Activate.
+1. In your WordPress admin, open Plugins > Add New, search for "FastLayer", then click Install Now and Activate.
 2. To install manually, upload the `fastlayer` folder to `/wp-content/plugins/` and activate the plugin from the Plugins screen.
 3. On activation, FastLayer installs its `advanced-cache.php` drop-in and adds `define( 'WP_CACHE', true );` to `wp-config.php` so page caching can work.
 4. Open **FastLayer** in the admin menu. The Dashboard shows cache status and quick actions.
-5. Work through the settings pages and enable only the features you need, then save.
+5. Work through the settings screens and enable only the features you need, then save.
 
-= Recommended first setup =
+= Setup order =
 
-* **Cache:** enable **Page Caching**, then enable **Cache Preloading** if you want pages warmed automatically after a clear.
-* **CSS and JS:** enable minification first, then add combination, delivery and delay options one at a time and check the front end after each change.
-* **Media:** enable **Convert Images to WebP Format**, then run **Bulk WebP Generation** for existing images. Turn on lazy loading and LQIP if your theme is compatible.
-* **Database:** review the cleanup list before removing anything, then run the cleanup and optimize tables.
+1. **Cache:** enable **Page Caching**, then turn on **Cache Preloading** if you want pages warmed automatically after a cache clear.
+2. **CSS and JavaScript:** enable minification first, then add combination, delivery and delay options one at a time and check the front end after each change.
+3. **Media:** enable **Convert Images to WebP Format** and run **Bulk WebP Generation** for existing images, then turn on lazy loading and LQIP if your theme is compatible.
+4. **Database:** review the cleanup list before removing anything, then run the cleanup and optimize tables.
 
 = Requirements =
 
-* WordPress 6.0 or newer, and PHP 7.4 or newer.
+* WordPress 6.0 or newer and PHP 7.4 or newer.
 * WebP conversion needs the GD library with WebP support, or Imagick with WebP support. The Media screen reports what your server supports.
 * FastLayer writes to `wp-config.php` and, when WebP is enabled, to the site root `.htaccess`. Both files must be writable by WordPress for FastLayer to add its rules automatically.
 
 == Compatibility ==
 
-* **Caching and optimization plugins:** use a single page-cache engine and a single minify engine per site to avoid conflicting output.
+* **Other caching and optimization plugins:** run one page-cache engine and one minify engine per site to avoid conflicting output.
 * **Page builders and e-commerce:** Smart JS Delay keeps critical dependencies, Elementor and WooCommerce checkout/cart, and navigation scripts running immediately.
 * **Servers:** Apache and LiteSpeed apply the `.htaccess` rules directly; nginx needs a manual server-level WebP rule.
 * **Multisite:** not currently supported.
 
 == Frequently Asked Questions ==
 
-= Does FastLayer modify WordPress core files? =
+= Does FastLayer change WordPress core files? =
 
-No. FastLayer never edits the files in `wp-includes/` or `wp-admin/`. Like most caching plugins, it creates and manages configuration and drop-in files outside the plugin folder:
+No. FastLayer never edits files in `wp-includes/` or `wp-admin/`. Like most caching plugins, it creates and manages its own files outside the plugin folder:
 
 * On activation it installs `wp-content/advanced-cache.php`.
-* On activation it adds `define( 'WP_CACHE', true );` to `wp-config.php`, above the "That's all, stop editing!" line. FastLayer backs up `wp-config.php` outside the web root before editing it, and it only removes the line again if it carries FastLayer's own ownership marker.
+* On activation it adds `define( 'WP_CACHE', true );` to `wp-config.php`, above the "That's all, stop editing!" line. FastLayer backs up `wp-config.php` outside the web root before editing it, and only removes the line again when it carries FastLayer's own ownership marker.
 * When WebP is enabled it adds a marked `WP FastLayer WebP` block to the `.htaccess` file in your WordPress root.
 
-Deactivating the plugin removes the drop-in and its `wp-config.php` line, and clears FastLayer's WebP `.htaccess` directives. Deleting it also removes the plugin's options and generated cache files.
+See Uninstall and data removal for what happens when you deactivate or delete the plugin.
 
 = How do I clear the cache? =
 
-Use the **FastLayer** menu in the admin bar to **Clear All Cache**, **Clear CSS/JS Cache**, or **Preload Cache**. The same actions are available on the plugin's Dashboard.
-
-= Will FastLayer conflict with another caching or optimization plugin? =
-
-FastLayer is written to back off rather than clobber other software: it will not overwrite an `advanced-cache.php` drop-in owned by another caching plugin, it will not remove a `WP_CACHE` line it did not create, and its `.htaccess` rules are wrapped in removable markers. Even so, running two page-cache engines or two minify engines at once usually produces confusing results, so enable one caching system and one asset optimization system per site.
-
-= Is FastLayer compatible with nginx? =
-
-Page caching and asset optimization work on nginx. WebP rewrite rules are written to `.htaccess`, which nginx does not read, so on nginx you need to apply the equivalent WebP rule at the server level. FastLayer shows an admin notice with guidance when it detects nginx.
-
-= Why is WebP conversion unavailable on my server? =
-
-WebP conversion needs GD with WebP support or Imagick with WebP support. The Media screen reports exactly what your server has. Ask your host to enable GD WebP or Imagick WebP, then reload the screen.
+Use the **FastLayer** menu in the admin bar to **Clear All Cache**, **Clear CSS/JS Cache**, or **Preload Cache**. The same actions are on the plugin Dashboard.
 
 = Do I need an ImageKit account? =
 
-No. ImageKit is an optional third-party image delivery service and is off by default. FastLayer works fully without it. See the External Services section for exactly what is sent if you enable it.
+No. ImageKit is optional and off by default, and FastLayer works fully without it. See External Services for exactly what is sent if you enable it.
 
-= Where are the generated files stored? =
+= Is FastLayer compatible with nginx? =
+
+Yes. Page caching and asset optimization work on nginx. WebP rewrite rules need `.htaccess`, which nginx does not read, so apply the equivalent WebP rule at the server level. FastLayer shows an admin notice with guidance when it detects nginx.
+
+= Will FastLayer conflict with another caching or optimization plugin? =
+
+FastLayer is written to back off rather than clobber other software: it will not overwrite an `advanced-cache.php` drop-in owned by another caching plugin, it will not remove a `WP_CACHE` line it did not create, and its `.htaccess` rules are wrapped in removable markers. Even so, running two page-cache engines or two minify engines at once usually produces confusing results, so enable one of each per site.
+
+= Which files and folders does FastLayer create? =
 
 * Page cache, configuration and the cache `.htaccess`: `wp-content/cache/wp-fastlayer/`
 * Combined and minified CSS/JS: `wp-content/uploads/wp-fastlayer-min/`
@@ -154,15 +140,37 @@ No. ImageKit is an optional third-party image delivery service and is off by def
 
 = Does FastLayer support WordPress Multisite? =
 
-FastLayer is built and tested for single-site installations. Multisite is not currently supported.
+No. FastLayer is built and tested for single-site installations.
 
 = Is any data sent to a third party? =
 
-No data leaves your site by default. The only external service is the optional ImageKit integration, and it does nothing until you configure it. Once you save an ImageKit endpoint and enable the integration, your front-end pages point image requests at ImageKit, so visitors' browsers load those images directly from ImageKit. See the External Services section for exactly what is sent, and by whom.
+No data leaves your site by default. The only external service is the optional ImageKit integration, and it does nothing until you configure it. Once you save an ImageKit endpoint and enable the integration, your front-end pages point image requests at ImageKit, so visitors' browsers load those images directly from ImageKit. See External Services for exactly what is sent, and by whom.
 
 = Where can I report a bug or ask for help? =
 
 Please open an issue on the plugin's GitHub repository: https://github.com/kanhajatthap/WP-FastLayer
+
+== Troubleshooting ==
+
+= My changes are not showing on the front end =
+
+FastLayer clears its cache automatically when posts, comments, terms or the active theme change. If you are also running a server, CDN or second caching layer, that layer may still be serving an older copy. Clear the FastLayer cache from the admin bar, then clear your CDN or server cache as well.
+
+= Styles or scripts break after I enable optimization =
+
+Turn the feature off, then re-enable options one at a time to find the cause. Add the affected files to the exclude list on the CSS or JavaScript screen. For JavaScript, enable **Safe Mode** or use **Smart JS Delay** instead of plain defer, so fragile scripts keep working.
+
+= WebP conversion is unavailable on my server =
+
+WebP conversion needs GD with WebP support or Imagick with WebP support. The Media screen reports exactly what your server has. Ask your host to enable GD WebP or Imagick WebP, then reload the screen.
+
+= Some images were not converted to WebP =
+
+WebP conversion only processes images the server can read and write to. The bulk screen reports how many images converted, how many failed and how many remain, and **View Detailed Logs** shows which files were skipped.
+
+= My host does not allow .htaccess changes =
+
+On nginx and on hosting that blocks `.htaccess` edits, add the WebP rule at the server level instead. Page caching does not depend on `.htaccess` and continues to work normally.
 
 == External Services ==
 
@@ -182,23 +190,11 @@ ImageKit is a third-party image optimization and delivery service operated by Im
 * **How is it protected?** For the requests FastLayer itself makes, FastLayer restricts the host to ImageKit's own hosts (`imagekit.io` and its subdomains) and rejects requests to any other host, to IP addresses, and to URLs containing embedded credentials. If you enter an endpoint without a scheme, FastLayer adds `https://`. If you enter one that explicitly begins with `http://`, FastLayer will use it as written, so enter your `https://` endpoint to keep that connection encrypted. Front-end image URLs are built from whichever endpoint you save, so the same advice applies there.
 * **What is stored locally?** The endpoint you enter is saved in your WordPress options and is also written into a configuration file FastLayer generates at `wp-content/cache/wp-fastlayer/config.php`. This value is deleted when you uninstall the plugin.
 
-== Troubleshooting ==
+== Uninstall and data removal ==
 
-= My changes are not showing on the front end =
+Deactivating FastLayer removes its `advanced-cache.php` drop-in and its `wp-config.php` line, and clears its WebP `.htaccess` directives. Your settings and cached files are left in place.
 
-FastLayer clears its cache automatically when posts, comments, terms or the active theme change. If you are also running a server, CDN or second caching layer, that layer may still be serving an older copy. Clear the FastLayer cache from the admin bar, then clear your CDN or server cache as well.
-
-= Styles or scripts break after I enable optimization =
-
-Turn the feature off, then re-enable options one at a time to find the cause. Add the affected files to the exclude list on the CSS or JavaScript screen. For JavaScript, enable **Safe Mode** or use **Smart JS Delay** instead of plain defer, so fragile scripts keep working.
-
-= Some images were not converted to WebP =
-
-WebP conversion only processes images the server can read and write to. The bulk screen reports how many images converted, how many failed and how many remain, and **View Detailed Logs** shows which files were skipped.
-
-= My host does not allow .htaccess changes =
-
-On nginx and on hosting that blocks `.htaccess` edits, add the WebP rule at the server level instead. Page caching does not depend on `.htaccess` and continues to work normally.
+Deleting the plugin removes its options, transients, cron jobs and generated cache files, including the saved ImageKit endpoint (stored in your options and in the generated `wp-content/cache/wp-fastlayer/config.php`). WebP image files created next to your uploads are not deleted.
 
 == Screenshots ==
 
