@@ -322,10 +322,10 @@ class CDN {
         if ( $this->is_imagekit_enabled() ) {
             // First pass: rewrite srcset entries (widths from w-descriptors).
             $html = preg_replace_callback(
-                '#(?<attr>\b(?:srcset|data-srcset|data-lazy-srcset)\s*=\s*["\"])(?<srcset>[^"\"]+)(?<end>["\"])#i',
+                '#(?<attr>\b(?:srcset|data-srcset|data-lazy-srcset)\s*=\s*["\'])(?<srcset>[^"\']+)(?<end>["\'])#i',
                 function ( $matches ) {
                     $srcset    = isset( $matches['srcset'] ) ? $matches['srcset'] : '';
-                    $rewritten = $this->rewrite_srcset_string( $srcset );
+                    $rewritten = $this->rewrite_srcset_string( $srcset, true );
                     return $matches['attr'] . $rewritten . $matches['end'];
                 },
                 $html
@@ -354,6 +354,11 @@ class CDN {
                                         'rewritten_url'            => $rewritten,
                                     )
                                 );
+                                // Escape the generated URL as it is written back
+                                // into a raw HTML attribute. Unchanged values
+                                // stay byte-for-byte so already-encoded markup
+                                // is never double-encoded.
+                                $rewritten = esc_attr( $rewritten );
                             }
 
                             return $attr_matches['attr'] . $rewritten . $attr_matches['end'];
@@ -382,7 +387,7 @@ class CDN {
 
     private function is_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_cdn'] ) && '1' === $options['enable_cdn'] && ! empty( $options['cdn_cname'] );
+        return isset( $options['enable_cdn'] ) && '1' === (string) $options['enable_cdn'] && ! empty( $options['cdn_cname'] );
     }
 
     private function is_imagekit_enabled() {
@@ -882,7 +887,7 @@ class CDN {
         return true;
     }
 
-    private function rewrite_srcset_string( $srcset ) {
+    private function rewrite_srcset_string( $srcset, $escape_for_attribute = false ) {
         if ( '' === $srcset || ! is_string( $srcset ) ) {
             return $srcset;
         }
@@ -913,6 +918,13 @@ class CDN {
             );
 
             $rewritten_url = $this->rewrite_to_imagekit( $candidate_url, $width );
+
+            if ( $escape_for_attribute && $rewritten_url !== $candidate_url ) {
+                // The caller is building a raw HTML attribute string, so the
+                // generated URL must be attribute-safe. Unchanged candidates
+                // are left untouched to avoid double-encoding existing markup.
+                $rewritten_url = esc_attr( $rewritten_url );
+            }
 
             $parts[ $index ] = '' !== $descriptor ? $rewritten_url . ' ' . $descriptor : $rewritten_url;
             $this->debug_log(
@@ -999,7 +1011,7 @@ class CDN {
         $content = $this->rewrite_elementor_background_settings_urls( $content );
 
         $background_rewritten = preg_replace_callback(
-            '#(?<declaration>background(?:-image)?\s*:[^;{}]*?)url\((?<quote>["\"]?)(?<url>(?!data:)[^\)"\']+)(?P=quote)\)#i',
+            '#(?<declaration>background(?:-image)?\s*:[^;{}]*?)url\((?<quote>["\']?)(?<url>(?!data:)[^\)"\']+)(?P=quote)\)#i',
             function ( $matches ) {
                 $original = isset( $matches['url'] ) ? trim( $matches['url'] ) : '';
                 if ( '' === $original ) {
@@ -1007,6 +1019,7 @@ class CDN {
                 }
 
                 $rewritten_url = $this->rewrite_to_imagekit( html_entity_decode( $original, ENT_QUOTES, 'UTF-8' ), $this->get_background_transform_min_width(), true );
+                $rewritten_url = $this->sanitize_css_url( $rewritten_url );
 
                 if ( $rewritten_url !== $original ) {
                     $this->debug_log(
@@ -1027,7 +1040,7 @@ class CDN {
         $content = is_string( $background_rewritten ) ? $background_rewritten : $content;
 
         $rewritten = preg_replace_callback(
-            '#url\((?<quote>["\"]?)(?<url>(?!data:)[^\)"\']+)(?P=quote)\)#i',
+            '#url\((?<quote>["\']?)(?<url>(?!data:)[^\)"\']+)(?P=quote)\)#i',
             function ( $matches ) {
                 $original = isset( $matches['url'] ) ? trim( $matches['url'] ) : '';
                 if ( '' === $original ) {
@@ -1035,6 +1048,7 @@ class CDN {
                 }
 
                 $rewritten_url = $this->rewrite_to_imagekit( html_entity_decode( $original, ENT_QUOTES, 'UTF-8' ) );
+                $rewritten_url = $this->sanitize_css_url( $rewritten_url );
 
                 if ( $rewritten_url !== $original ) {
                     $this->debug_log(
@@ -1075,7 +1089,14 @@ class CDN {
                             return $original_url;
                         }
 
-                        return $this->rewrite_to_imagekit( $original_url, $this->get_background_transform_min_width(), true );
+                        $rewritten_url = $this->rewrite_to_imagekit( $original_url, $this->get_background_transform_min_width(), true );
+                        if ( $rewritten_url === $original_url ) {
+                            return $original_url;
+                        }
+
+                        // The payload is written back into a raw data-settings
+                        // attribute, so the generated URL must be attribute-safe.
+                        return esc_attr( $rewritten_url );
                     },
                     $payload
                 );
@@ -1086,6 +1107,26 @@ class CDN {
         );
 
         return is_string( $rewritten ) ? $rewritten : $content;
+    }
+
+    /**
+     * Removes characters that could break out of a CSS url() token.
+     *
+     * The value is a FastLayer-generated URL written inside url( ... ), so the
+     * CSS closing tokens are stripped rather than trusted.
+     *
+     * @param string $url Generated URL.
+     * @return string CSS-safe URL value.
+     */
+    private function sanitize_css_url( $url ) {
+        if ( ! is_string( $url ) || '' === $url ) {
+            return (string) $url;
+        }
+
+        // The generated URL is written inside url( ... ) in a style attribute
+        // or <style> block. Strip any character that could close the CSS token
+        // and break out of it instead of trusting the configured endpoint.
+        return str_replace( array( "\r", "\n", "\t", '"', "'", '(', ')', '\\', '<', '>' ), '', $url );
     }
 
     private function get_background_transform_min_width() {
@@ -1593,10 +1634,38 @@ class CDN {
         $updated = preg_replace( '/\sloading\s*=\s*["\'][^"\']*["\']/i', '', $updated );
         $updated = preg_replace( '/\sfetchpriority\s*=\s*["\'][^"\']*["\']/i', '', $updated );
         $updated = preg_replace( '/\sdecoding\s*=\s*["\'][^"\']*["\']/i', '', $updated );
-        $updated = preg_replace( '/\sdata-src\s*=\s*["\']([^"\']*)["\']/i', ' src="$1"', $updated, 1 );
-        $updated = preg_replace( '/\sdata-lazy-src\s*=\s*["\']([^"\']*)["\']/i', ' src="$1"', $updated, 1 );
-        $updated = preg_replace( '/\sdata-srcset\s*=\s*["\']([^"\']*)["\']/i', ' srcset="$1"', $updated, 1 );
-        $updated = preg_replace( '/\sdata-lazy-srcset\s*=\s*["\']([^"\']*)["\']/i', ' srcset="$1"', $updated, 1 );
+        $updated = preg_replace_callback(
+            '/\sdata-src\s*=\s*["\']([^"\']*)["\']/i',
+            function ( $m ) {
+                return ' src="' . esc_attr( html_entity_decode( (string) $m[1], ENT_QUOTES, 'UTF-8' ) ) . '"';
+            },
+            $updated,
+            1
+        );
+        $updated = preg_replace_callback(
+            '/\sdata-lazy-src\s*=\s*["\']([^"\']*)["\']/i',
+            function ( $m ) {
+                return ' src="' . esc_attr( html_entity_decode( (string) $m[1], ENT_QUOTES, 'UTF-8' ) ) . '"';
+            },
+            $updated,
+            1
+        );
+        $updated = preg_replace_callback(
+            '/\sdata-srcset\s*=\s*["\']([^"\']*)["\']/i',
+            function ( $m ) {
+                return ' srcset="' . esc_attr( html_entity_decode( (string) $m[1], ENT_QUOTES, 'UTF-8' ) ) . '"';
+            },
+            $updated,
+            1
+        );
+        $updated = preg_replace_callback(
+            '/\sdata-lazy-srcset\s*=\s*["\']([^"\']*)["\']/i',
+            function ( $m ) {
+                return ' srcset="' . esc_attr( html_entity_decode( (string) $m[1], ENT_QUOTES, 'UTF-8' ) ) . '"';
+            },
+            $updated,
+            1
+        );
         $updated = preg_replace_callback(
             '/\sclass\s*=\s*["\']([^"\']*)["\']/i',
             function( $m ) {

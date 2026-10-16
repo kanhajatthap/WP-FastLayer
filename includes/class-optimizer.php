@@ -27,6 +27,17 @@ class Optimizer {
     );
     private $google_fonts_icon_family_cache = array();
     private $smart_delay_plan = null;
+
+    /**
+     * Nesting level of FastLayer's own HTML output buffer.
+     *
+     * The optimizer is the *inner* buffer (the page cache starts first), so its
+     * level is stored at open time and the shutdown flusher only ever closes a
+     * buffer at that exact level. A foreign buffer opened on top is left alone.
+     *
+     * @var int
+     */
+    private $buffer_level = 0;
     private $allowed_js_types = array(
         'text/javascript',
         'module',
@@ -72,43 +83,44 @@ class Optimizer {
         add_filter( 'script_loader_tag', array( $this, 'maybe_add_async_attribute' ), 20, 3 );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_delay_js_loader' ), 9999 );
         add_action( 'template_redirect', array( $this, 'start_html_buffer' ), 1 );
+        add_action( 'shutdown', array( $this, 'flush_html_buffer' ), 1 );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_lazyload_scripts' ) );
         add_filter( 'the_content', array( $this, 'lazyload_images' ) );
     }
 
     private function is_css_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_minify_css'] ) && '1' === $options['enable_minify_css'];
+        return isset( $options['enable_minify_css'] ) && '1' === (string) $options['enable_minify_css'];
     }
 
     private function is_js_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_minify_js'] ) && '1' === $options['enable_minify_js'];
+        return isset( $options['enable_minify_js'] ) && '1' === (string) $options['enable_minify_js'];
     }
 
     private function is_defer_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_js_defer'] ) && '1' === $options['enable_js_defer'];
+        return isset( $options['enable_js_defer'] ) && '1' === (string) $options['enable_js_defer'];
     }
 
     private function is_safe_mode_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_js_safe_mode'] ) && '1' === $options['enable_js_safe_mode'];
+        return isset( $options['enable_js_safe_mode'] ) && '1' === (string) $options['enable_js_safe_mode'];
     }
 
     private function is_async_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_js_async'] ) && '1' === $options['enable_js_async'];
+        return isset( $options['enable_js_async'] ) && '1' === (string) $options['enable_js_async'];
     }
 
     private function is_smart_delay_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_js_smart_delay'] ) && '1' === $options['enable_js_smart_delay'];
+        return isset( $options['enable_js_smart_delay'] ) && '1' === (string) $options['enable_js_smart_delay'];
     }
 
     private function is_smart_delay_debug_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_js_smart_delay_debug'] ) && '1' === $options['enable_js_smart_delay_debug'];
+        return isset( $options['enable_js_smart_delay_debug'] ) && '1' === (string) $options['enable_js_smart_delay_debug'];
     }
 
     private function get_smart_delay_timeout() {
@@ -908,12 +920,12 @@ class Optimizer {
 
     private function is_css_combine_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_css_combine'] ) && '1' === $options['enable_css_combine'];
+        return isset( $options['enable_css_combine'] ) && '1' === (string) $options['enable_css_combine'];
     }
 
     private function is_js_combine_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_js_combine'] ) && '1' === $options['enable_js_combine'];
+        return isset( $options['enable_js_combine'] ) && '1' === (string) $options['enable_js_combine'];
     }
 
     public function maybe_combine_css_tag( $tag, $handle, $href, $media ) {
@@ -1303,7 +1315,7 @@ class Optimizer {
 
     private function is_google_fonts_display_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_google_fonts_display'] ) && '1' === $options['enable_google_fonts_display'];
+        return isset( $options['enable_google_fonts_display'] ) && '1' === (string) $options['enable_google_fonts_display'];
     }
 
     private function has_embedded_or_svg_font_source( $font_face_block ) {
@@ -1680,12 +1692,12 @@ class Optimizer {
 
     private function is_css_delivery_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_css_delivery'] ) && '1' === $options['enable_css_delivery'];
+        return isset( $options['enable_css_delivery'] ) && '1' === (string) $options['enable_css_delivery'];
     }
 
     private function is_css_remove_unused_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_css_remove_unused'] ) && '1' === $options['enable_css_remove_unused'];
+        return isset( $options['enable_css_remove_unused'] ) && '1' === (string) $options['enable_css_remove_unused'];
     }
 
     private function is_smart_gutenberg_css_optimization_enabled() {
@@ -2031,12 +2043,12 @@ class Optimizer {
 
     private function is_css_inline_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_css_inline'] ) && '1' === $options['enable_css_inline'];
+        return isset( $options['enable_css_inline'] ) && '1' === (string) $options['enable_css_inline'];
     }
 
     private function is_critical_css_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_critical_css'] ) && '1' === $options['enable_critical_css'];
+        return isset( $options['enable_critical_css'] ) && '1' === (string) $options['enable_critical_css'];
     }
 
     private function has_critical_css() {
@@ -2249,19 +2261,7 @@ class Optimizer {
     }
 
     private function url_to_path( $url ) {
-        $url        = esc_url_raw( $url );
-        $base_url   = site_url();
-        $parsed_url = wp_parse_url( $url );
-
-        if ( empty( $parsed_url['host'] ) || empty( $parsed_url['path'] ) ) {
-            return false;
-        }
-
-        if ( strpos( $url, $base_url ) !== 0 ) {
-            return false;
-        }
-
-        return ABSPATH . ltrim( str_replace( $base_url, '', $url ), '/' );
+        return Bootstrap::url_to_path( $url );
     }
 
     private function rewrite_css_urls( $content, $original_url ) {
@@ -2389,6 +2389,24 @@ class Optimizer {
         }
 
         ob_start( array( $this, 'minify_html' ) );
+        $this->buffer_level = ob_get_level();
+    }
+
+    /**
+     * Flushes the optimizer's own output buffer at shutdown.
+     *
+     * Runs at priority 1 so the inner buffer is closed before the page cache's
+     * outer buffer (priority 5) reads its contents. The level guard means only
+     * a buffer FastLayer opened itself is ever closed: if another plugin has
+     * opened a buffer on top, or the buffer was already closed, nothing is
+     * touched. Flushing (not discarding) runs the minify callback so the page
+     * cache stores the transformed HTML.
+     */
+    public function flush_html_buffer() {
+        if ( $this->buffer_level > 0 && ob_get_level() === $this->buffer_level ) {
+            ob_end_flush();
+        }
+        $this->buffer_level = 0;
     }
 
     private function should_start_buffer() {
@@ -2397,7 +2415,7 @@ class Optimizer {
 
     private function is_html_minify_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_minify'] ) && $options['enable_minify'] === '1';
+        return isset( $options['enable_minify'] ) && (string) $options['enable_minify'] === '1';
     }
 
     public function minify_html( $html ) {
@@ -2410,7 +2428,7 @@ class Optimizer {
         $html = $this->preserve_blocks( $html, $placeholders );
 
         if ( $this->is_html_minify_enabled() ) {
-            $html = $this->remove_comments( $html, isset( $options['enable_html_preserve_gutenberg_comments'] ) && '1' === $options['enable_html_preserve_gutenberg_comments'] );
+            $html = $this->remove_comments( $html, isset( $options['enable_html_preserve_gutenberg_comments'] ) && '1' === (string) $options['enable_html_preserve_gutenberg_comments'] );
             $html = $this->remove_whitespace( $html );
         }
 
@@ -2524,7 +2542,7 @@ class Optimizer {
 
     private function is_lazyload_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_lazyload'] ) && $options['enable_lazyload'] === '1';
+        return isset( $options['enable_lazyload'] ) && (string) $options['enable_lazyload'] === '1';
     }
 
     public function lazyload_images( $content ) {

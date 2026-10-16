@@ -30,7 +30,10 @@ Everything below reflects the `1.1.0` source in this repository.
   - `register_activation_hook` → `activate()`
   - `register_deactivation_hook` → `deactivate()`
   - `update_option_fastlayer_options` / `add_option_fastlayer_options` →
-    `sync_static_config()` (regenerates `config.php`)
+    `sync_static_config()` (regenerates `config.json`; on multisite writes the
+    site's `sites/{blog_id}.json` + `sites.json`)
+  - `wp_initialize_site` → `on_initialize_site()` (adds a new subsite to the
+    network index)
   - legacy `wp_fastlayer_options` add/update → `mirror_legacy_options()`
   - `admin_notices` (admin only) → `admin_notices()`
 - `init()` runs, guarded by `try/catch`:
@@ -39,8 +42,11 @@ Everything below reflects the `1.1.0` source in this repository.
      legacy in-plugin `logs/` directory.
   3. `migrate_legacy_state()` — one-time rename migration.
   4. `reset_options_if_needed()` — normalises/creates the options row.
-  5. `load_modules()` — instantiates `Page_Cache`, `Optimizer`,
-     `Database_Optimization`, `Admin_Bar`, `Webp`, then `Admin`.
+  5. `ensure_static_config()` — (re)writes `config.json` (single-site) or the
+     per-site file + `sites.json` index (multisite); removes legacy
+     `config.php`; rebuilds a missing multisite index.
+  6. `load_modules()` — instantiates `Page_Cache`, `Optimizer`,
+     `Database_Optimization`, `Admin_Bar`, `Webp`, `CDN`, then `Admin`.
 - `activate()` additionally: sets defaults, schedules the hourly preload cron,
   installs the `advanced-cache.php` drop-in and adds the `WP_CACHE` constant.
 - `deactivate()` clears cron (current + legacy), removes the drop-in (only if
@@ -53,8 +59,8 @@ Everything below reflects the `1.1.0` source in this repository.
   ImageKit test, WebP bulk, debug reports, DB cleanup).
 - Constructor is also invoked defensively from `Bootstrap::load_modules()`.
 
-> **Note:** `includes/class-cdn.php` is loaded by the autoloader when its class is
-> first referenced (by `Admin`/`Optimizer`/`Webp`), not from the module list.
+> **Note:** `includes/class-cdn.php` is instantiated by
+> `Bootstrap::load_modules()` so its front-end hooks are attached (finding I).
 
 ---
 
@@ -86,8 +92,15 @@ FastLayer has **two** cache code paths that must stay in sync:
 
 1. WordPress defines `ABSPATH` and loads `wp-content/advanced-cache.php` very
    early (because `WP_CACHE` is `true`).
-2. The drop-in loads `wp-content/cache/wp-fastlayer/config.php` (a plain PHP
-   `return [...]` array) into `$options`.
+2. The drop-in loads its config into `$options`:
+   - **multisite** — if `wp-content/cache/wp-fastlayer/sites.json` exists, resolve
+     the current request (host + longest home-path match, mirroring
+     `ms_load_current_site_and_network()`) to a blog id and load
+     `sites/{blog_id}.json`; a request that matches no entry loads nothing
+     (cache disabled — fail-safe);
+   - **single-site / no index** — load `config.json` (plain JSON);
+   - a legacy executable `config.php` is only read when there is no index and no
+     JSON (see `docs/ADR-0001-multisite-config.md`).
 3. `fastlayer_cache_enabled()` checks `enable_cache === '1'`.
 4. `fastlayer_should_skip_cache()` returns true (do not serve cache) when:
    - the request `Host` is not in the trusted host list (`_home_host`,
@@ -142,22 +155,35 @@ Defaults are defined in `Bootstrap::get_default_options()` (cache expiry,
 minify/combine/defer toggles, WebP/LQIP quality, ImageKit settings, DB cleanup
 toggles, exclusions, `debug_mode`, `_version`, …).
 
-### 4.2 Static config file
+### 4.2 Static config files
 
-`Bootstrap::write_static_config()` generates
-`wp-content/cache/wp-fastlayer/config.php`:
+`Bootstrap::write_static_config()` generates the pre-WordPress config consumed by
+the drop-in. The format is **JSON** (never executable PHP):
 
-```php
-<?php
-// WP FastLayer static configuration file. Generated on <date>
-return array( ...options..., '_home_host' => array( 'example.com' ) );
+```
+wp-content/cache/wp-fastlayer/
+├── config.json      # single-site: the authoritative mirror of the options row
+├── sites.json       # multisite: { "https://home-url" : blog_id, … }
+└── sites/
+    └── {blog_id}.json   # multisite: that site's full options array
 ```
 
-- It is a **mirror** of the options row for the pre-WordPress drop-in.
-- The target path is verified to stay inside the cache directory.
+- **Single-site:** only `config.json`. A stale `sites.json` / `sites/` is removed
+  on the next write so it cannot shadow `config.json`.
+- **Multisite:** `fastlayer_options` are stored per site, but the cache
+  directory is network-wide, so each site keeps its own `sites/{blog_id}.json`
+  and `sites.json` maps each site's home URL to its id. The drop-in (which runs
+  before WordPress can know the current site) resolves the request against that
+  index. `config.json` is deleted on the first multisite write.
 - The write is byte-count checked and read-back verified; failures go to the
   `fastlayer_write_failures` transient and are shown to admins.
-- `_home_host` is injected only here, never stored back in the DB row.
+- `_home_host` (trusted hosts) is injected only here, never stored back in the DB
+  row. Multisite files additionally carry `_blog_id` and `_home_url`.
+- The index is (re)built on network activation, when it is found missing on
+  `init`, and on `wp_initialize_site` for a brand-new subsite.
+
+Full rationale, the alternatives considered and the migration/edge-case matrix
+live in `docs/ADR-0001-multisite-config.md`.
 
 ### 4.3 Cron
 
@@ -218,7 +244,7 @@ purge). The admin bar and admin screens offer manual purge actions guarded by
 | Artifact | Location |
 | --- | --- |
 | Combined/minified CSS & JS | `wp-content/uploads/wp-fastlayer-min/` |
-| Page cache HTML + `config.php` + `.htaccess` + `index.php` | `wp-content/cache/wp-fastlayer/` |
+| Page cache HTML + `config.json`/`sites.json`/`sites/{id}.json` + `.htaccess` + `index.php` | `wp-content/cache/wp-fastlayer/` |
 | Preload artifacts | `wp-content/uploads/wp-fastlayer-preload/` |
 | Debug log | `wp-content/uploads/wp-fastlayer-logs/performance.log` |
 | Drop-in | `wp-content/advanced-cache.php` |
@@ -269,7 +295,8 @@ byte counts, re-reads and compares, and records failures via
 - Endpoint handling: restricts to `imagekit.io` and subdomains, rejects IPs and
   embedded credentials, prepends `https://` when no scheme is given, and uses
   `http://` verbatim only if explicitly entered.
-- Only the endpoint is stored (in options and in `config.php`); no API keys.
+- Only the endpoint is stored (in options and in the generated JSON config); no
+  API keys.
 - LCP preload emits a `<link rel="preload">` for the hero image (optionally the
   CDN/ImageKit URL).
 
@@ -301,6 +328,12 @@ touches a foreign drop-in or foreign constant.
 
 - **Two cache implementations** (drop-in functions + `Page_Cache`) must agree on
   skip rules and URL normalisation; divergence is a correctness risk.
+- **Multisite config resolution** is split across two layers: `Bootstrap` writes
+  the per-site files + `sites.json` index, and `advanced-cache.php` resolves the
+  current site from that index. They must agree on the home-URL normalisation
+  (untrailingslashed home URL; host lowercased with the port stripped; whole-
+  segment path match, longest prefix wins). See
+  `docs/ADR-0001-multisite-config.md`.
 - **Unprefixed globals** in `advanced-cache.php` / `uninstall.php` remain
   (REVIEW-FIXES A1). The `$_wpfl_bootstrap_file` bootstrap variable that used to
   live in `wp-fastlayer.php` was **removed in round 4** (2026-10-12); the
@@ -309,4 +342,7 @@ touches a foreign drop-in or foreign constant.
 - **Direct DB queries** in DB optimization need `prepare()`/caching review
   (REVIEW-FIXES B3/B6/B7).
 - **`WP_CACHE` re-warning** after reactivate (REVIEW-FIXES A9).
-- No PHP test harness exists in this environment; runtime behaviour is unverified.
+- No PHPUnit harness is committed; helpers are covered by `tests/test-*.php` run
+  with `wp eval-file` (see `docs/TEST-COVERAGE-GAPS.md`). Multisite is verified at
+  the WP-CLI level on a scratch network; HTTP-level multisite flows are not
+  exercised here.

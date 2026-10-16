@@ -17,40 +17,77 @@ if ( function_exists( 'WP_Filesystem' ) && WP_Filesystem() && $wp_filesystem ins
     $fastlayer_filesystem = $wp_filesystem;
 }
 
-// Remove stored plugin settings (currently used and legacy naming rows).
-delete_option( 'fastlayer_options' );
-delete_option( 'wp_fastlayer_options' );
-delete_option( 'fastlayer_webp_last_run' );
-delete_option( 'wp_fastlayer_webp_last_run' );
-delete_option( 'fastlayer_image_runtime_debug_samples' );
-delete_option( 'wp_fastlayer_image_runtime_debug_samples' );
-delete_option( 'fastlayer_preload_state' );
-delete_option( 'wp_fastlayer_preload_state' );
-delete_option( 'fastlayer_preload_lock' );
-delete_option( 'wp_fastlayer_preload_lock' );
-delete_option( 'fastlayer_preload_batch_lock' );
-delete_option( 'wp_fastlayer_preload_batch_lock' );
+// Remove stored plugin settings (currently used and legacy naming rows). On
+// multisite every site keeps its own options row, so the rows are removed for
+// each site rather than only for the site the uninstall happens to run under.
+$fastlayer_option_names = array(
+    'fastlayer_options',
+    'wp_fastlayer_options',
+    'fastlayer_webp_last_run',
+    'wp_fastlayer_webp_last_run',
+    'fastlayer_image_runtime_debug_samples',
+    'wp_fastlayer_image_runtime_debug_samples',
+    'fastlayer_preload_state',
+    'wp_fastlayer_preload_state',
+    'fastlayer_preload_lock',
+    'wp_fastlayer_preload_lock',
+    'fastlayer_preload_batch_lock',
+    'wp_fastlayer_preload_batch_lock',
+);
+$fastlayer_site_ids = array( 0 );
+if ( function_exists( 'is_multisite' ) && is_multisite() && function_exists( 'get_sites' ) ) {
+    $fastlayer_site_ids = array();
+    foreach ( get_sites( array( 'number' => 0 ) ) as $fastlayer_site ) {
+        $fastlayer_site_id = isset( $fastlayer_site->blog_id ) ? (int) $fastlayer_site->blog_id : 0;
+        if ( $fastlayer_site_id > 0 ) {
+            $fastlayer_site_ids[] = $fastlayer_site_id;
+        }
+    }
+}
+foreach ( $fastlayer_site_ids as $fastlayer_site_id ) {
+    $fastlayer_switched = false;
+    if ( $fastlayer_site_id > 0 ) {
+        switch_to_blog( $fastlayer_site_id );
+        $fastlayer_switched = true;
+    }
+    foreach ( $fastlayer_option_names as $fastlayer_option_name ) {
+        delete_option( $fastlayer_option_name );
+    }
+    if ( $fastlayer_switched ) {
+        restore_current_blog();
+    }
+}
 
 // Remove stored transients the plugin uses for notices and debug diagnostics.
-foreach (
-    array(
-        'fastlayer_write_failures',
-        'fastlayer_cache_debug_trace',
-        'fastlayer_cache_debug_test_result',
-        'fastlayer_imagekit_test_notice',
-        'fastlayer_dismissed_nginx_webp_notice',
-        'fastlayer_image_debug_report_payload',
-        'fastlayer_lcp_last_report',
-        'fastlayer_webp_summary',
-        'fastlayer_webp_upload_notice_',
-        'fastlayer_bulk_webp_batch',
-    ) as $fastlayer_transient_prefix
-) {
-    foreach ( array( '_transient_', '_transient_timeout_' ) as $fastlayer_transient_key_prefix ) {
-        delete_option( $fastlayer_transient_key_prefix . $fastlayer_transient_prefix );
+// Transients are per site too, so run the removal under each site as well.
+$fastlayer_transient_prefixes = array(
+    'fastlayer_write_failures',
+    'fastlayer_cache_debug_trace',
+    'fastlayer_cache_debug_test_result',
+    'fastlayer_imagekit_test_notice',
+    'fastlayer_dismissed_nginx_webp_notice',
+    'fastlayer_image_debug_report_payload',
+    'fastlayer_lcp_last_report',
+    'fastlayer_webp_summary',
+    'fastlayer_webp_upload_notice_',
+    'fastlayer_bulk_webp_batch',
+);
+foreach ( $fastlayer_site_ids as $fastlayer_site_id ) {
+    $fastlayer_switched = false;
+    if ( $fastlayer_site_id > 0 ) {
+        switch_to_blog( $fastlayer_site_id );
+        $fastlayer_switched = true;
     }
-    foreach ( array( '_transient_', '_transient_timeout_' ) as $fastlayer_transient_key_prefix ) {
-        delete_option( $fastlayer_transient_key_prefix . 'wp_' . $fastlayer_transient_prefix );
+    foreach ( $fastlayer_transient_prefixes as $fastlayer_transient_prefix ) {
+        foreach ( array( '_transient_', '_transient_timeout_' ) as $fastlayer_transient_key_prefix ) {
+            delete_option( $fastlayer_transient_key_prefix . $fastlayer_transient_prefix );
+        }
+        foreach ( array( '_transient_', '_transient_timeout_' ) as $fastlayer_transient_key_prefix ) {
+            delete_option( $fastlayer_transient_key_prefix . 'wp_' . $fastlayer_transient_prefix );
+        }
+    }
+    if ( $fastlayer_switched ) {
+        restore_current_blog();
     }
 }
 
@@ -62,16 +99,23 @@ if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
     wp_clear_scheduled_hook( 'wp_fastlayer_preload_batch' );
 }
 
-// Remove generated cache files.
+// Remove generated cache files. The multisite layout nests per-site configs
+// under a sites/ subdirectory, so the removal recurses instead of only sweeping
+// the top level (otherwise the directory would not be empty and rmdir fails).
 $fastlayer_cache_dir = WP_CONTENT_DIR . '/cache/wp-fastlayer/';
 if ( is_dir( $fastlayer_cache_dir ) ) {
-    $fastlayer_files = glob( $fastlayer_cache_dir . '*', GLOB_NOSORT );
-    if ( is_array( $fastlayer_files ) ) {
-        foreach ( $fastlayer_files as $fastlayer_file ) {
-            if ( is_file( $fastlayer_file ) ) {
-                wp_delete_file( $fastlayer_file );
+    $fastlayer_cache_iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator( $fastlayer_cache_dir, RecursiveDirectoryIterator::SKIP_DOTS ),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ( $fastlayer_cache_iterator as $fastlayer_cache_item ) {
+        if ( $fastlayer_cache_item->isDir() ) {
+            if ( $fastlayer_filesystem ) {
+                $fastlayer_filesystem->rmdir( $fastlayer_cache_item->getPathname() );
             }
+            continue;
         }
+        wp_delete_file( $fastlayer_cache_item->getPathname() );
     }
     if ( $fastlayer_filesystem ) {
         $fastlayer_filesystem->rmdir( $fastlayer_cache_dir );
@@ -173,7 +217,28 @@ if ( $fastlayer_filesystem && function_exists( 'get_home_path' ) && function_exi
     }
 }
 
-// Remove plugin logs (new location in uploads).
+// Remove plugin logs (stored outside the public web root when supported).
+$fastlayer_abspath = function_exists( 'wp_normalize_path' ) ? wp_normalize_path( untrailingslashit( ABSPATH ) ) : untrailingslashit( str_replace( '\\', '/', ABSPATH ) );
+$fastlayer_parent_abspath = dirname( $fastlayer_abspath );
+if ( '' !== $fastlayer_parent_abspath && $fastlayer_parent_abspath !== $fastlayer_abspath ) {
+    $fastlayer_outside_log_dir = trailingslashit( $fastlayer_parent_abspath . '/fastlayer-logs' );
+    if ( is_dir( $fastlayer_outside_log_dir ) ) {
+        $fastlayer_outside_log_file = $fastlayer_outside_log_dir . 'performance.log';
+        if ( file_exists( $fastlayer_outside_log_file ) ) {
+            wp_delete_file( $fastlayer_outside_log_file );
+        }
+        foreach ( array( '.htaccess', 'index.php' ) as $fastlayer_protection_file ) {
+            if ( file_exists( $fastlayer_outside_log_dir . $fastlayer_protection_file ) ) {
+                wp_delete_file( $fastlayer_outside_log_dir . $fastlayer_protection_file );
+            }
+        }
+        if ( $fastlayer_filesystem ) {
+            $fastlayer_filesystem->rmdir( $fastlayer_outside_log_dir );
+        }
+    }
+}
+
+// Remove plugin logs (legacy location in uploads).
 $fastlayer_upload_dir = wp_upload_dir();
 $fastlayer_log_dir = trailingslashit( $fastlayer_upload_dir['basedir'] ) . 'wp-fastlayer-logs/';
 if ( is_dir( $fastlayer_log_dir ) ) {

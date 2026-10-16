@@ -12,10 +12,10 @@ Procedure for preparing a FastLayer release and submitting it to WordPress.org.
 
 | # | Check | Status | Notes |
 | --- | --- | --- | --- |
-| 0.1 | Working copy is clean / all intended changes committed | Not Run | This folder is **not** a git repo (verified). |
+| 0.1 | Working copy is clean / all intended changes committed | Not Run | This folder **is** a git repo (branch `main`); run `git status` and confirm a clean tree before release. |
 | 0.2 | You are on the intended release version/branch | Not Run | |
 | 0.3 | `readme.txt` changelog updated for the new version | Not Run | |
-| 0.4 | Documentation current (`AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/REVIEW-FIXES.md`, `tests/QA-CHECKLIST.md`) | **Updated (2026-10-13)** | `RELEASE-CHECKLIST.md`, `REVIEW-FIXES.md`, `tests/QA-CHECKLIST.md` refreshed for the round-8 Plugin Check remediation pass (160 → 2 warnings; all security/code-quality findings resolved via justified `phpcs:ignore` or code changes; only AGENTS.md markdown and `load_plugin_textdomain` remain). |
+| 0.4 | Documentation current (`AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/REVIEW-FIXES.md`, `tests/QA-CHECKLIST.md`) | **Updated (2026-10-15, round 9)** | `docs/AUDIT-BASELINE.md`, `docs/REVIEW-HISTORY-MATRIX.md`, `docs/TEST-COVERAGE-GAPS.md`, `docs/CI-RELEASE-GATES.md`, `docs/AI-SKILLS-PLAN.md`, `docs/AUDIT-FINDINGS.md` and the new architecture decision `docs/ADR-0001-multisite-config.md` cover the round-9 (A–G) remediation, the runtime findings **H–K**, and **finding J (multisite per-site config) — now FIXED**. Plugin Check is **0 E / 3 W**; the three warnings are packaging/intentional (`.gitignore`, `AGENTS.md`, `load_plugin_textdomain`). See `docs/REVIEW-HISTORY-MATRIX.md` for the round-8 reconciliation. |
 
 ---
 
@@ -57,15 +57,15 @@ and say so — never mark a check as passed without running it.
 
 | # | Check | Command | Status | Evidence |
 | --- | --- | --- | --- | --- |
-| 2.1 | JS syntax (all files) | `node --check assets/js/*.js` | **PASS** (2026-10-13) | 4/4 exit 0, node v22.23.2 |
-| 2.2 | PHP syntax | `php -l` on every `.php` file | **PASS** (2026-10-13) | **13/13 clean** on LocalWP PHP **7.4.30** *and* **8.2.29** (13 = 11 plugin files + the 2 regression test files) |
+| 2.1 | JS syntax (all files) | `node --check assets/js/*.js` | **PASS** (re-run 2026-10-15) | **4/4 exit 0**, node v22.23.2 |
+| 2.2 | PHP syntax | `php -l` on every `.php` file | **PASS** (re-run 2026-10-15) | **21/21 clean** on LocalWP PHP **7.4.30** (11 production files + 9 regression scripts + `tests/phpcs-gate.php`); previously linted also on PHP **8.2.29** (2026-10-13) |
 | 2.3 | WPCS I18n sniff | bundled `vendor/bin/phpcs --standard=WordPress --sniffs=WordPress.WP.I18n --runtime-set text_domain fastlayer` (all files) | **PASS** (2026-10-13) | 0 findings, exit 0 (re-run for the 13-file set in the round-7 code pass) |
-| 2.4 | Plugin Check | `wp plugin check fastlayer` | **Improved** (2026-10-13) | WP-CLI 2.12.0 + plugin-check 2.1.0 on the live local site — final **0 E / 2 W** (the 16 `AlternativeFunctions` errors cleared by the round-7 WP_Filesystem pass; the 160 warnings cleared by round-8 code changes + justified `phpcs:ignore`). The `enqueued_styles_size` runtime check hung in this environment and was excluded; it emits no finding, so the result is unaffected. See the comparison table above and `REVIEW-FIXES.md` Part B-implementation-7 / -8 |
+| 2.4 | Plugin Check | `wp plugin check fastlayer --exclude-directories=.github,.opencode,docs,tests,node_modules,vendor` | **PASS (0 E / 3 W)** (re-run 2026-10-15) | Canonical CI exclusions reproduced; warnings: `hidden_files` (.gitignore), `unexpected_markdown_file` (AGENTS.md), `load_plugin_textdomainFound` (intentional) |
 | 2.5 | Debug noise (`console.log` / `error_log*`) | manual grep + Plugin Check `error_log*` review | **Reviewed** (2026-10-13) | 15 `error_log*` warnings remain, all `WP_DEBUG`-gated error paths or the static-config `var_export`; documented as intentional (Part B-implementation-5) |
-| 2.6 | No leftover dev-only files (`*.bak`, `*.staged`, local logs) | manual inventory | **Verified** (2026-10-13) | The tree holds exactly **18 production files** (see §5); `AGENTS.md`, `docs/`, `tests/` are dev-only and excluded from the ZIP |
+| 2.6 | No leftover dev-only files (`*.bak`, `*.staged`, local logs) | manual inventory | **Verified** (2026-10-15) | The production files are exactly the 18 listed in §5. Tests, docs, `.github`, `.opencode` are excluded from the ZIP (dev-only). No stray files. |
 | 2.7 | `readme.txt` validation | official WordPress.org Readme Validator | **PASS** (2026-10-13) | No errors, no warnings; sole note: “No donate link was found” |
-| 2.7b | `readme.txt` (Plugin Check) | `wp plugin check fastlayer` (`plugin_readme`) | **PASS** (2026-10-13) | “No errors found.” |
-| 2.8 | WordPress-6.0 function compatibility | `wp plugin check fastlayer --checks=wp_functions_compatibility` | **PASS** (2026-10-13) | “No errors found” — no WordPress function newer than the declared `Requires at least: 6.0` (static check; real WP 6.0 runtime still Blocked) |
+| 2.7b | `readme.txt` (Plugin Check) | `wp plugin check fastlayer --exclude-directories=.github,.opencode,docs,tests,node_modules,vendor` (`plugin_readme`) | **PASS** (re-run 2026-10-15) | No `plugin_readme` errors in the canonical-run output |
+| 2.8 | WordPress-6.0 function compatibility | `wp plugin check fastlayer --checks=wp_functions_compatibility` | **PASS** (2026-10-13) | “No errors found”; runtime on WP 6.0 still **Blocked** (no disposable environment) |
 
 ### Plugin Check comparison
 
@@ -78,11 +78,17 @@ ideally should reduce the baseline. Record the new counts.
 > 2026-10-12 (see `docs/REVIEW-FIXES.md` Part B-implementation-3), re-baselined
 > again after the lowercase folder rename (Part B-implementation-4).
 
-| Metric | Baseline (2026-10-07 CSV) | Live 2026-10-12 (pre-fix) | Live 2026-10-12 (post-fix) | Round 4 (post-rename) | Round 5 (post-R5-1) | Round 7 (post-WP_Filesystem) | **Final (round 8, 2026-10-13)** |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Errors | 104 | 500 | 455 | 16 | 16 | **0** | **0** |
-| Warnings | 171 | 179 | 170 | 168 | 160 | **160** | **2** |
-| Total | 275 | 679 | 625 | 184 | 176 | **160** | **2** |
+| Metric | Baseline (2026-10-07 CSV) | Live 2026-10-12 (pre-fix) | Live 2026-10-12 (post-fix) | Round 4 (post-rename) | Round 5 (post-R5-1) | Round 7 (post-WP_Filesystem) | Round 8 (2026-10-13) | **R9 (2026-10-15)** |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Errors | 104 | 500 | 455 | 16 | 16 | **0** | **0** | **0** |
+| Warnings | 171 | 179 | 170 | 168 | 160 | **160** | **2** | **3** |
+| Total | 275 | 679 | 625 | 184 | 176 | **160** | **2** | **3** |
+
+> The round-8 scan recorded 2 warnings (`.gitignore` did not exist in that
+> environment). The round-9 scan records 3 — the extra row is `hidden_files` on
+> `.gitignore`, a dev-only file excluded from the production ZIP. No code defect
+> was introduced. See `docs/REVIEW-HISTORY-MATRIX.md` → “Consistency
+> reconciliation”.
 
 - The 440 text-domain ERRORs cleared with the lowercase folder rename (round 4).
 - The 8 security rows cleared in round 5 (`InputNotSanitized` 20 → 16,
@@ -100,11 +106,19 @@ ideally should reduce the baseline. Record the new counts.
   `advanced-cache.php`/`uninstall.php`) or a single-line, technically-justified
   `phpcs:ignore` (early-load superglobals, read-only request params, maintenance
   SQL, `set_time_limit`, `var_export`, fatal/shutdown `error_log`). The two
-  remaining rows are `unexpected_markdown_file` (AGENTS.md, dev-only, excluded
+  remaining rows were `unexpected_markdown_file` (AGENTS.md, dev-only, excluded
   from the ZIP) and `load_plugin_textdomainFound` (intentional; see
   `REVIEW-FIXES.md` A17). The `enqueued_styles_size` runtime check hung in this
   environment and was excluded — it emits no finding, so the result is
-  unaffected. See `REVIEW-FIXES.md` Part B-implementation-8.
+  unaffected.
+  - **Reconciliation (2026-10-15).** There is **no** `Part B-implementation-8`
+    section in `docs/REVIEW-FIXES.md` (rounds 3–7 each have a
+    `Part B-implementation-N`; round 8 does not). The round-8 narrative above is
+    the only surviving record; `docs/REVIEW-HISTORY-MATRIX.md` is the
+    consolidated per-round index. The current live scan is **0 E / 3 W**, not 2:
+    a third warning (`hidden_files` on `.gitignore`) is present because the
+    plugin folder is now a git repository. It is a dev-only file and does not
+    affect the release.
 
 ### Unreleased source changes (2026-10-12 → 2026-10-13) — implemented; rounds 1–2 source-inspected only, rounds 3–7 executed
 
@@ -189,6 +203,20 @@ were documented with a line-scoped `phpcs:ignore`; see Part B-implementation-7.)
 | R7-5 uninstall cleanup | `uninstall.php` | One `WP_Filesystem()` init + five `@rmdir()` → `$wp_filesystem->rmdir()` (removals skipped when the filesystem is unavailable) | **Executed** — lint clean; Plugin Check 0 E / 160 W. Live deactivate/delete **not re-run** (no disposable site) |
 | R7-6 documented exceptions | `advanced-cache.php`, `includes/class-bootstrap.php`, `includes/class-page-cache.php`, `includes/class-webp.php` | Seven line-scoped `phpcs:ignore` for the calls that cannot use a WP helper (pre-WordPress drop-in; atomic `rename`; streaming `readfile`) | **Executed** — Plugin Check `AlternativeFunctions` 16 → **0** |
 
+**Round 9 (2026-10-15) — executed (remediation A–G, runtime findings H–K, multisite finding J):**
+
+| Fix | File | What changed | Verified? |
+| --- | --- | --- | --- |
+| J-1 per-site config | `includes/class-bootstrap.php` | `write_static_config()` branches on `is_multisite()`; added `write_multisite_static_config()`, `update_site_index()`, `rebuild_multisite_index()`, `on_initialize_site()`, `remove_legacy_config_files()`, `remove_multisite_artifacts()`, `is_multisite_install()`, `current_site_id()`, `site_home_url()`, `write_json_file()`/`read_json_file()` (byte + read-back verified) | **Executed** — `tests/test-multisite-config.php` PASS on a scratch 2-site network |
+| J-2 index-first drop-in | `advanced-cache.php` | Added `fastlayer_resolve_blog_id()` + `fastlayer_normalize_host()`/`fastlayer_request_path()`/`fastlayer_load_site_options_from_index()`; loads `sites/{id}.json` from `sites.json` (longest host+path match), falls back to `config.json`, reads legacy `config.php` only when there is no index | **Executed** — resolver unit checks PASS; **A/B fails 7 checks** pre-fix |
+| J-3 purge safety | `includes/class-page-cache.php` | `get_cache_files()` returns only `.html` so a clear never deletes `config.json`/`sites.json`/`sites/*.json` | **Executed** — live cache dir retains `config.json` after a purge path |
+| J-4 multisite uninstall | `uninstall.php` | Deletes options/transients **per site** (`get_sites()` + `switch_to_blog()`) and removes the cache directory **recursively** (nested `sites/`) | **Executed** — `php -l` clean; Plugin Check unchanged |
+| (H–K, A–D) | `includes/class-*.php`, `advanced-cache.php`, `tests/*` | Toggle readers type-normalised (H); `CDN` added to `load_modules()` (I); WPCS gate source matching (K); A–D as recorded in `docs/AUDIT-FINDINGS.md` | **Executed** — see `docs/AUDIT-FINDINGS.md` A–D, H–K and `docs/TEST-COVERAGE-GAPS.md` §1.10 |
+
+> Full per-finding detail, the architecture decision (J) and the honest
+> not-run/blocked list live in `docs/AUDIT-FINDINGS.md`,
+> `docs/ADR-0001-multisite-config.md` and `docs/TEST-COVERAGE-GAPS.md`.
+
 > Do **not** mark the release ready because these edits are in place. §2 and §3
 > must still be green.
 
@@ -213,6 +241,7 @@ Walk `tests/QA-CHECKLIST.md`. At minimum, these must pass on a real site:
 | Priority-1 security regression (§R) | R-01 … R-41 | Not Run (static sub-checks executed — see `tests/QA-CHECKLIST.md` §P) |
 | R-57 cache debug-trace persistence (§R) | R-57 | **PASS (2026-10-13)** — `tests/test-r57-debug-trace-transient.php` run with `wp eval-file` on **PHP 7.4.30** and **PHP 8.2.29** (both exit 0); the pre-fix A/B body fails. See `docs/REVIEW-FIXES.md` Part B-implementation-5 “Round 6” and Part B-implementation-6 |
 | Filesystem cleanup (§R) | R-59 | **PASS (2026-10-13)** — `tests/test-filesystem-rmdir.php` run with `wp eval-file` on **PHP 7.4.30** and **PHP 8.2.29** (both exit 0): an empty directory is removed, a non-empty dir and a file path are refused. See `docs/REVIEW-FIXES.md` Part B-implementation-7 |
+| Multisite per-site config (finding J) | — | **PASS (WP-CLI level, 2026-10-15)** — `tests/test-multisite-config.php` on a scratch 2-site network (two sites with different settings stay isolated; resolver matches each home URL/child path) and on the live single-site (`config.json` authoritative). **A/B:** the same test fails **7 checks** against a neutralised pre-fix build. Decision: `docs/ADR-0001-multisite-config.md` |
 
 ---
 
@@ -227,11 +256,11 @@ Test at least the minimum and one current version:
 | PHP below 7.4 | **Blocked** | Not available in the testing environment; no reviewer requirement to test below 7.4 |
 | WordPress 6.0 minimum | **Blocked (static only)** | No disposable WP 6.0 environment. Static `wp_functions_compatibility` check → “No errors found” (no function newer than 6.0). |
 | Current PHP + current WordPress | **Partial** | Live site runs **PHP 7.4.30 + WordPress 7.1.3**; the same codebase was additionally linted and regression-tested on **PHP 8.2.29** (2026-10-13). |
-| Fresh install | **Blocked** | No disposable empty WordPress site available. |
-| Upgrade from 1.0.0 (legacy `wp_fastlayer_*`) | **Blocked** | No disposable 1.0.0 site to upgrade from; legacy migration paths are source-inspected and documented only. |
+| Fresh install | **Passed (scratch)** | Round-9 runtime pass: a disposable WP 7.1.3 install — activate installed the drop-in + marked `WP_CACHE`, created the cache dir and wrote `config.json`; deactivate removed only the owned line + drop-in; reactivate restored both (see `docs/TEST-COVERAGE-GAPS.md` §1.6). |
+| Upgrade from 1.0.0 (legacy `wp_fastlayer_*`) | **Passed (scratch)** | Round-9 runtime pass: legacy `wp_fastlayer_options` migrated, defaults filled, `_version` bumped to `1.1.0`, legacy preload cron cleared and re-scheduled, `config.json` regenerated (see `docs/TEST-COVERAGE-GAPS.md` §1.7). |
 | Apache or LiteSpeed | **Blocked** | Only an **nginx** LocalWP site exists in this environment (no Apache/LiteSpeed). |
 | nginx | **Partial** | The audit (activate/deactivate/reactivate, `WP_CACHE`, PHP lint, PHPCS, live Plugin Check, live page-cache serve/save) ran on this LocalWP **nginx** + MySQL 8.4 site; web-server-specific cache serving (D-10, J-04) not exercised |
-| Multisite (if claimed) | Not Run | FastLayer does not claim multisite support |
+| Multisite (per-site config) | **Passed (WP-CLI level)** | Round-9 runtime pass: `wp core multisite-convert` + network activation on a scratch 2-site network — per-site `sites/{id}.json` + `sites.json` index isolate two sites with deliberately different settings (finding **J** fixed; `tests/test-multisite-config.php` PASS). HTTP-level front-end flows not exercised (no web server on the scratch network). |
 | Debug logging off (default) and on | Not Run | |
 
 > **PHP version policy:** FastLayer declares `Requires PHP: 7.4`. The lowest PHP

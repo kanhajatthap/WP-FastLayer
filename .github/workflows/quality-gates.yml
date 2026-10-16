@@ -1,0 +1,145 @@
+name: Quality Gates
+
+# Automated gates for FastLayer. See docs/CI-RELEASE-GATES.md for what each job
+# proves and what remains manual. Nothing here publishes or uploads anything.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: PHP ${{ matrix.php }} lint + JS syntax
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.4', '8.2' ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: PHP syntax check
+        run: |
+          set -e
+          find . -type f -name '*.php' \
+            -not -path './vendor/*' -not -path './node_modules/*' -print0 \
+            | xargs -0 -n1 -P4 php -l
+
+      - name: Set up Node
+        if: matrix.php == '8.2'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: JS syntax check
+        if: matrix.php == '8.2'
+        run: |
+          set -e
+          for f in assets/js/*.js; do
+            echo "node --check $f"
+            node --check "$f"
+          done
+
+  version-sync:
+    name: Version sync (3 locations)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert header == constant == Stable tag
+        run: |
+          set -e
+          HEADER="$(grep -m1 -E '^[[:space:]]*\*[[:space:]]*Version:' wp-fastlayer.php | sed -E 's/.*Version:[[:space:]]*//' | tr -d '[:space:]')"
+          CONST="$(grep -m1 -E "define\([[:space:]]*'FASTLAYER_VERSION'" wp-fastlayer.php | sed -E "s/.*'FASTLAYER_VERSION'[^']*'([^']+)'.*/\1/" | tr -d '[:space:]')"
+          STABLE="$(grep -m1 -E '^Stable tag:' readme.txt | sed -E 's/Stable tag:[[:space:]]*//' | tr -d '[:space:]')"
+          echo "header=$HEADER constant=$CONST stable_tag=$STABLE"
+          if [ -z "$HEADER" ] || [ -z "$CONST" ] || [ -z "$STABLE" ]; then
+            echo "::error::Could not parse one of the three version locations."
+            exit 1
+          fi
+          if [ "$HEADER" != "$CONST" ] || [ "$CONST" != "$STABLE" ]; then
+            echo "::error::Version mismatch: header=$HEADER constant=$CONST stable=$STABLE"
+            exit 1
+          fi
+          echo "All three version locations match ($HEADER)."
+
+  plugin-check:
+    name: Plugin Check (WordPress.org)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Official WordPress.org Plugin Check action. It fails the job on any
+      # ERROR-level finding; warnings are surfaced but not fatal because the
+      # three remaining warnings are triaged as packaging / intentional in
+      # docs/REVIEW-FIXES.md. Dev-only directories are excluded from the build.
+      - name: Run Plugin Check
+        uses: WordPress/plugin-check-action@v1
+        with:
+          build-dir: '.'
+          exclude-directories: '.github,.opencode,docs,tests,node_modules,vendor'
+          ignore-warnings: true
+
+  phpcs:
+    name: WPCS (no new rule regressions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      # Installed in an isolated directory so no composer.json / vendor/ is
+      # committed to the plugin root (the production ZIP manifest is fixed).
+      - name: Install PHPCS + WPCS in isolation
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/phpcstools"
+          cd "$RUNNER_TEMP/phpcstools"
+          cat > composer.json <<'JSON'
+          {
+            "require-dev": {
+              "squizlabs/php_codesniffer": "^3.13",
+              "wp-coding-standards/wpcs": "^3.2",
+              "phpcsstandards/phpcsextra": "^1.2",
+              "phpcsstandards/phpcsutils": "^1.0"
+            },
+            "config": {
+              "allow-plugins": {
+                "dealerdirect/phpcodesniffer-composer-installer": true
+              }
+            }
+          }
+          JSON
+          composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Run WPCS (JSON report)
+        run: |
+          set -e
+          PHPCS="$RUNNER_TEMP/phpcstools/vendor/bin/phpcs"
+          # The codebase intentionally uses 4-space PHP indentation, so a raw
+          # gate on --standard=WordPress is not meaningful; the report is
+          # compared per-sniff against the committed baseline instead.
+          "$PHPCS" --standard=WordPress --extensions=php \
+            --ignore='*/vendor/*,*/node_modules/*,*/tests/*' \
+            --report=json . > "$RUNNER_TEMP/phpcs-report.json" || true
+
+      - name: Compare against baseline
+        run: php tests/phpcs-gate.php "$RUNNER_TEMP/phpcs-report.json" tests/phpcs-baseline.json

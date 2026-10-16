@@ -88,7 +88,7 @@ class Webp {
 
     private function is_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_webp'] ) && '1' === $options['enable_webp'];
+        return isset( $options['enable_webp'] ) && '1' === (string) $options['enable_webp'];
     }
 
     private function is_bulk_webp_generation_enabled() {
@@ -105,7 +105,7 @@ class Webp {
 
     private function is_image_delivery_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_image_delivery'] ) && '1' === $options['enable_image_delivery'];
+        return isset( $options['enable_image_delivery'] ) && '1' === (string) $options['enable_image_delivery'];
     }
 
     private function should_bypass_local_webp() {
@@ -3415,37 +3415,6 @@ JS;
     }
 
     private function url_to_path( $url ) {
-        $url = esc_url_raw( $url );
-        $parsed_url = wp_parse_url( $url );
-        if ( empty( $parsed_url['path'] ) ) {
-            return false;
-        }
-
-        $request_path = rawurldecode( $parsed_url['path'] );
-        $upload_dir = wp_upload_dir();
-        $base_url   = trailingslashit( $upload_dir['baseurl'] );
-        $base_dir   = trailingslashit( wp_normalize_path( $upload_dir['basedir'] ) );
-
-        $upload_path = wp_parse_url( $base_url, PHP_URL_PATH );
-        if ( ! empty( $upload_path ) ) {
-            $upload_path = untrailingslashit( rawurldecode( $upload_path ) );
-            if ( 0 === strpos( $request_path, $upload_path ) ) {
-                $relative = ltrim( substr( $request_path, strlen( $upload_path ) ), '/' );
-                return wp_normalize_path( $base_dir . $relative );
-            }
-        }
-
-        if ( '/' === substr( $request_path, 0, 1 ) ) {
-            $abs_path = wp_normalize_path( ABSPATH . ltrim( $request_path, '/' ) );
-            if ( file_exists( $abs_path ) ) {
-                return $abs_path;
-            }
-        }
-
-        if ( ! empty( $parsed_url['host'] ) && ! $this->is_internal_url( $url ) ) {
-            return false;
-        }
-
-        return wp_normalize_path( ABSPATH . ltrim( $request_path, '/' ) );
+        return Bootstrap::url_to_path( $url );
     }
 }

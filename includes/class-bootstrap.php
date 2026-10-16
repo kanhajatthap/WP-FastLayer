@@ -28,6 +28,20 @@ add_action( 'init', array( $this, 'init' ) );
         add_action( 'update_option_fastlayer_options', array( $this, 'sync_static_config' ), 10, 3 );
         add_action( 'add_option_fastlayer_options', array( $this, 'sync_static_config' ), 10, 2 );
 
+        // On multisite each site keeps its own config file. A site created after
+        // activation must be added to the network index at creation time, or the
+        // drop-in cannot resolve it until its first front-end request (and until
+        // then the main site's entry would answer for it).
+        add_action( 'wp_initialize_site', array( $this, 'on_initialize_site' ), 20, 1 );
+
+        // The drop-in resolves a site by the home URL recorded in sites.json, so
+        // a home URL change (Settings -> General, network admin, or a
+        // domain-mapping plugin) must refresh the index immediately. Without
+        // this the site stays unresolvable to the drop-in (cache disabled) and
+        // the old home URL keeps answering for it until its settings are saved.
+        add_action( 'update_option_home', array( $this, 'on_home_option_updated' ), 10, 3 );
+        add_action( 'update_option_siteurl', array( $this, 'on_home_option_updated' ), 10, 3 );
+
         // Installs upgraded from the original wp_fastlayer_options naming keep
         // writing the legacy row until a settings save flips the plugins to
         // the new key. Mirror those writes so the two rows never diverge.
@@ -100,7 +114,7 @@ add_action( 'init', array( $this, 'init' ) );
 
     private function is_debug_enabled() {
         $options = get_option( 'fastlayer_options', array() );
-        return isset( $options['debug_mode'] ) && $options['debug_mode'] === '1';
+        return isset( $options['debug_mode'] ) && (string) $options['debug_mode'] === '1';
     }
 
     private function load_modules() {
@@ -110,6 +124,7 @@ add_action( 'init', array( $this, 'init' ) );
             'Database_Optimization',
             'Admin_Bar',
             'Webp',
+            'CDN',
         );
 
         foreach ( $modules as $module ) {
@@ -150,9 +165,51 @@ add_action( 'init', array( $this, 'init' ) );
             $this->create_logs_directory();
             $this->migrate_legacy_state();
             $this->reset_options_if_needed();
+            $this->ensure_static_config();
             $this->load_modules();
         } catch ( \Throwable $e ) {
             \fastlayer_debug_log( 'WP FastLayer init error: ' . $e->getMessage() );
+        }
+    }
+
+    /**
+     * Re-creates the static config when it is missing, invalid, or left in the
+     * legacy executable form.
+     *
+     * This makes the JSON migration self-healing: an install that upgraded but
+     * has not saved settings yet, a file damaged by a partial write, and a site
+     * whose home URL changed (the drop-in resolves sites by home URL) all end
+     * up with a valid file on the next request, so the drop-in never has to
+     * rely on the legacy file or on a stale index for long.
+     */
+    private function ensure_static_config() {
+        $cache_dir   = wp_normalize_path( FASTLAYER_CACHE_DIR );
+        $legacy_file = $cache_dir . 'config.php';
+
+        if ( self::is_multisite_install() ) {
+            $blog_id    = self::current_site_id();
+            $site_file  = $cache_dir . 'sites/' . $blog_id . '.json';
+            $index_file = $cache_dir . 'sites.json';
+
+            // A missing, empty or malformed index, a site whose home URL
+            // changed, and a missing or corrupt per-site file all leave the
+            // drop-in unable to load this site's options. write_static_config()
+            // repairs all of them: it rewrites the per-site file and, when the
+            // index is unusable, update_site_index() rebuilds it from the sites
+            // table so the other sites' entries are preserved.
+            $index      = self::read_json_file( $index_file );
+            $site_valid = is_array( self::read_json_file( $site_file ) );
+
+            if ( ! self::index_maps_site( $index, $blog_id ) || ! $site_valid || file_exists( $legacy_file ) ) {
+                self::write_static_config( get_option( 'fastlayer_options', array() ) );
+            }
+            return;
+        }
+
+        $json_file  = $cache_dir . 'config.json';
+        $json_valid = is_array( self::read_json_file( $json_file ) );
+        if ( ! $json_valid || file_exists( $legacy_file ) ) {
+            self::write_static_config( get_option( 'fastlayer_options', array() ) );
         }
     }
 
@@ -216,7 +273,7 @@ add_action( 'init', array( $this, 'init' ) );
         }
     }
 
-    public function activate() {
+    public function activate( $network_wide = false ) {
         $this->create_cache_directory();
         $this->create_logs_directory();
         $this->migrate_legacy_state();
@@ -227,6 +284,13 @@ add_action( 'init', array( $this, 'init' ) );
         }
         self::install_advanced_cache_dropin();
         self::add_wp_cache_constant();
+
+        // Network activation must seed the site index for every existing site,
+        // so the drop-in can resolve each one before it has been visited. A
+        // site-level activation only writes the current site's entry.
+        if ( self::is_multisite_install() && $network_wide ) {
+            self::rebuild_multisite_index();
+        }
     }
 
     public static function get_default_options() {
@@ -321,14 +385,21 @@ add_action( 'init', array( $this, 'init' ) );
     }
 
     /**
-     * Writes the static config.php used by the advanced-cache.php drop-in.
+     * Writes the static config used by the advanced-cache.php drop-in.
      *
-     * The file lives in FastLayer's own cache directory and only serves as a
+     * On a single-site install this is one config.json file. On multisite the
+     * options are per site, so each site gets sites/{blog_id}.json and a shared
+     * sites.json index maps a site's home URL to its id; the drop-in resolves
+     * the current request against that index (it cannot call
+     * get_current_blog_id() before ms-settings.php runs).
+     *
+     * The files live in FastLayer's own cache directory and only serve as a
      * pre-bootstrap mirror of the options row, which stays the source of truth.
-     * The target path is forced to remain inside the cache directory, and a
-     * failed or partial write is recorded instead of being silenced, so a read
-     * only directory clears the transient notice rather than silently leaving
-     * the drop-in on stale settings.
+     * They are plain JSON, not PHP, so nothing under wp-content/ is ever
+     * executed by including it. Every target path is forced to remain inside
+     * the cache directory, and a failed or partial write is recorded instead of
+     * being silenced, so a read-only directory raises a notice rather than
+     * silently leaving the drop-in on stale settings.
      *
      * @param array $options Plugin options (pre-migration form is fine too).
      * @return bool True when the config file on disk matches the options.
@@ -350,30 +421,438 @@ add_action( 'init', array( $this, 'init' ) );
         // is never written back to the fastlayer_options database row.
         $options['_home_host'] = self::get_expected_hosts();
 
-        $config_file = wp_normalize_path( $cache_dir . 'config.php' );
+        if ( self::is_multisite_install() ) {
+            return self::write_multisite_static_config( $cache_dir, $options );
+        }
+
+        $options['_blog_id'] = 1;
+
+        $config_file = wp_normalize_path( $cache_dir . 'config.json' );
         if ( 0 !== strpos( $config_file, $cache_dir ) ) {
-            self::record_write_failure( 'config.php', 'the target path escaped the cache directory; no file was written.' );
+            self::record_write_failure( 'config.json', 'the target path escaped the cache directory; no file was written.' );
             return false;
         }
 
-        // WordPress sets the PHP default timezone to UTC (wp-settings.php), so
-        // gmdate() produces the same timestamp date() did here while making the
-        // UTC intent explicit. The value is only a human-readable comment in the
-        // generated config file and has no functional role.
-        $content = "<?php\n// WP FastLayer static configuration file. Generated on " . gmdate( 'Y-m-d H:i:s' ) . "\nreturn " . var_export( $options, true ) . ";\n"; // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- var_export() builds the PHP array literal returned by the advanced-cache.php drop-in via include; it is not debug output.
-
-        $written = @file_put_contents( $config_file, $content, LOCK_EX );
-        if ( false === $written || strlen( $content ) !== $written ) {
-            self::record_write_failure( 'config.php', 'the file could not be written to ' . $config_file . '.' );
+        if ( ! self::write_json_file( $config_file, $options ) ) {
+            self::record_write_failure( 'config.json', 'the file could not be written to ' . $config_file . '.' );
             return false;
         }
 
-        if ( file_get_contents( $config_file ) !== $content ) {
-            self::record_write_failure( 'config.php', 'the written file could not be verified at ' . $config_file . '.' );
-            return false;
-        }
+        // A single-site install must not leave a multisite index behind: the
+        // drop-in prefers the index over config.json, so a stale index would
+        // shadow every later settings change.
+        self::remove_legacy_config_files( $cache_dir );
+        self::remove_multisite_artifacts( $cache_dir );
 
         return true;
+    }
+
+    /**
+     * Writes the per-site config file and the network site index on multisite.
+     *
+     * Every site keeps its own file under sites/{blog_id}.json, while
+     * sites.json maps a site's home URL to its id. advanced-cache.php cannot
+     * call get_current_blog_id() (it runs before ms-settings.php), so it
+     * resolves the current site by matching the request host and path against
+     * that index. The index is additive: each write only adds or updates the
+     * current site's entry, so one site's save never clobbers another's.
+     *
+     * @param string $cache_dir Normalized cache directory (trailing slash).
+     * @param array  $options   Plugin options, already carrying _home_host.
+     * @return bool
+     */
+    private static function write_multisite_static_config( $cache_dir, $options ) {
+        $blog_id = self::current_site_id();
+        if ( $blog_id <= 0 ) {
+            self::record_write_failure( 'config.json', 'the multisite site id could not be determined; no per-site file was written.' );
+            return false;
+        }
+
+        $sites_dir = wp_normalize_path( $cache_dir . 'sites/' );
+        if ( 0 !== strpos( $sites_dir, $cache_dir ) ) {
+            self::record_write_failure( 'config.json', 'the per-site directory escaped the cache directory; no file was written.' );
+            return false;
+        }
+        if ( ! file_exists( $sites_dir ) ) {
+            wp_mkdir_p( $sites_dir );
+        }
+        self::ensure_directory_protection( $sites_dir );
+
+        $home_url = self::site_home_url( $blog_id );
+
+        $options['_blog_id']  = $blog_id;
+        $options['_home_url'] = $home_url;
+
+        $site_file = wp_normalize_path( $sites_dir . $blog_id . '.json' );
+        if ( 0 !== strpos( $site_file, $cache_dir ) ) {
+            self::record_write_failure( 'config.json', 'the per-site config path escaped the cache directory; no file was written.' );
+            return false;
+        }
+        if ( ! self::write_json_file( $site_file, $options ) ) {
+            self::record_write_failure( 'config.json', 'the per-site config could not be written to ' . $site_file . '.' );
+            return false;
+        }
+
+        if ( '' !== $home_url ) {
+            self::update_site_index( wp_normalize_path( $cache_dir . 'sites.json' ), $home_url, $blog_id );
+        }
+
+        // A stale shared config must not remain: the drop-in falls back to
+        // config.json only when there is no index, and leaving one behind would
+        // let a single site's settings leak to the whole network.
+        $single_file = wp_normalize_path( $cache_dir . 'config.json' );
+        if ( file_exists( $single_file ) ) {
+            wp_delete_file( $single_file );
+        }
+        self::remove_legacy_config_files( $cache_dir );
+
+        return true;
+    }
+
+    /**
+     * Adds or updates one site's entry in the network index.
+     *
+     * A malformed or missing index is rebuilt from the sites table first, so a
+     * single site's write can never silently drop the other sites' entries. Any
+     * stale entry that still points at this site's previous home URL is removed,
+     * so a changed home URL or domain does not leave the old URL resolving here.
+     *
+     * @param string $index_file Absolute path to sites.json.
+     * @param string $home_url   Untrailingslashed site home URL.
+     * @param int    $blog_id    Site id.
+     * @return bool
+     */
+    private static function update_site_index( $index_file, $home_url, $blog_id ) {
+        $index_file = wp_normalize_path( $index_file );
+        if ( 0 !== strpos( $index_file, wp_normalize_path( FASTLAYER_CACHE_DIR ) ) ) {
+            return false;
+        }
+
+        $index = self::read_json_file( $index_file );
+        if ( ! is_array( $index ) ) {
+            // Missing or malformed: rebuild from the sites table instead of
+            // starting from an empty array, which would drop every other site.
+            self::rebuild_multisite_index();
+            $index = self::read_json_file( $index_file );
+            if ( ! is_array( $index ) ) {
+                $index = array();
+            }
+        }
+
+        $blog_id = (int) $blog_id;
+        $target  = self::home_url_host_path( $home_url );
+        $kept    = false;
+
+        foreach ( $index as $existing_home => $existing_id ) {
+            if ( (int) $existing_id !== $blog_id ) {
+                continue;
+            }
+
+            // Same site and same host+path: keep the existing key (it may differ
+            // only by scheme, which the drop-in deliberately ignores) instead of
+            // adding a duplicate.
+            if ( self::home_url_host_path( (string) $existing_home ) === $target ) {
+                $kept = true;
+                continue;
+            }
+
+            // Stale entry for this site's previous home URL.
+            unset( $index[ $existing_home ] );
+        }
+
+        if ( ! $kept ) {
+            $index[ $home_url ] = $blog_id;
+        }
+
+        return self::write_json_file( $index_file, $index );
+    }
+
+    /**
+     * True when the index contains an entry for the given site at its current
+     * home URL.
+     *
+     * The comparison ignores the scheme because the drop-in resolves a request
+     * by host and path only, and get_home_url() reports "https" whenever the
+     * request is over TLS even if the stored home URL is "http". Comparing the
+     * exact URLs would therefore rewrite a perfectly usable index on every
+     * scheme change.
+     *
+     * @param mixed $index   Decoded index, or null when missing/invalid.
+     * @param int   $blog_id Site id.
+     * @return bool
+     */
+    private static function index_maps_site( $index, $blog_id ) {
+        if ( ! is_array( $index ) || empty( $index ) ) {
+            return false;
+        }
+
+        $blog_id = (int) $blog_id;
+        if ( $blog_id <= 0 ) {
+            return false;
+        }
+
+        $home = self::site_home_url( $blog_id );
+        if ( '' === $home ) {
+            // The home URL cannot be read; accept the site only if the index
+            // still lists it, so we do not rewrite for an unrelated reason.
+            return in_array( $blog_id, array_map( 'intval', $index ), true );
+        }
+
+        $target = self::home_url_host_path( $home );
+        foreach ( $index as $index_home => $site_id ) {
+            if ( (int) $site_id === $blog_id && self::home_url_host_path( (string) $index_home ) === $target ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Host + untrailingslashed path of a URL, used to compare home URLs
+     * regardless of scheme.
+     *
+     * @param string $url URL.
+     * @return string
+     */
+    private static function home_url_host_path( $url ) {
+        $parts = wp_parse_url( (string) $url );
+        if ( ! is_array( $parts ) ) {
+            return '';
+        }
+
+        $host = isset( $parts['host'] ) ? strtolower( (string) $parts['host'] ) : '';
+        $path = isset( $parts['path'] ) ? untrailingslashit( (string) $parts['path'] ) : '';
+
+        return $host . $path;
+    }
+
+    /**
+     * Refreshes the static config when a site's home or site URL changes.
+     *
+     * Hooked to update_option_home / update_option_siteurl. These actions fire
+     * in the changed site's own context (update_blog_option() switches to it
+     * first), so get_current_blog_id() names the right site. On single-site the
+     * same call refreshes config.json, whose trusted-host list is derived from
+     * the home and site URLs.
+     */
+    public function on_home_option_updated() {
+        $options = get_option( 'fastlayer_options', array() );
+        if ( is_array( $options ) && ! empty( $options ) ) {
+            self::write_static_config( $options );
+        }
+    }
+
+    /**
+     * Rebuilds the whole network index from the sites table.
+     *
+     * Used on network activation, when the index is missing, and after the
+     * cache directory has been emptied. Reads each site's home URL with
+     * get_home_url() so mapped domains are indexed exactly as WordPress
+     * resolves them.
+     *
+     * @return bool
+     */
+    private static function rebuild_multisite_index() {
+        if ( ! self::is_multisite_install() || ! function_exists( 'get_sites' ) ) {
+            return false;
+        }
+
+        $index_file = wp_normalize_path( FASTLAYER_CACHE_DIR . 'sites.json' );
+        $index      = array();
+
+        foreach ( get_sites( array( 'number' => 0 ) ) as $site ) {
+            $blog_id = isset( $site->blog_id ) ? (int) $site->blog_id : 0;
+            if ( $blog_id <= 0 ) {
+                continue;
+            }
+            $home = self::site_home_url( $blog_id );
+            if ( '' !== $home ) {
+                $index[ $home ] = $blog_id;
+            }
+        }
+
+        if ( empty( $index ) ) {
+            return false;
+        }
+
+        return self::write_json_file( $index_file, $index );
+    }
+
+    /**
+     * Adds a newly created site to the network index.
+     *
+     * Hooked to wp_initialize_site. Without this a site created after network
+     * activation would only enter the index on its first front-end request, and
+     * until then the main site's index entry would answer for it.
+     *
+     * @param \WP_Site|int $new_site Site object (wp_initialize_site) or id.
+     */
+    public function on_initialize_site( $new_site ) {
+        if ( ! self::is_multisite_install() ) {
+            return;
+        }
+
+        if ( is_object( $new_site ) && isset( $new_site->blog_id ) ) {
+            $blog_id = (int) $new_site->blog_id;
+        } else {
+            $blog_id = (int) $new_site;
+        }
+        if ( $blog_id <= 0 ) {
+            return;
+        }
+
+        $home = self::site_home_url( $blog_id );
+        if ( '' === $home ) {
+            return;
+        }
+
+        self::update_site_index( wp_normalize_path( FASTLAYER_CACHE_DIR . 'sites.json' ), $home, $blog_id );
+    }
+
+    /**
+     * Deletes the legacy executable config.php written before 1.1.0.
+     *
+     * @param string $cache_dir Normalized cache directory (trailing slash).
+     */
+    private static function remove_legacy_config_files( $cache_dir ) {
+        $legacy_config = wp_normalize_path( $cache_dir . 'config.php' );
+        if ( file_exists( $legacy_config ) ) {
+            wp_delete_file( $legacy_config );
+        }
+    }
+
+    /**
+     * Removes a stale multisite index and per-site files on a single-site
+     * install (for example after a multisite network was reduced to one site).
+     *
+     * @param string $cache_dir Normalized cache directory (trailing slash).
+     */
+    private static function remove_multisite_artifacts( $cache_dir ) {
+        $index_file = wp_normalize_path( $cache_dir . 'sites.json' );
+        if ( file_exists( $index_file ) ) {
+            wp_delete_file( $index_file );
+        }
+
+        $sites_dir = wp_normalize_path( $cache_dir . 'sites/' );
+        if ( ! is_dir( $sites_dir ) ) {
+            return;
+        }
+
+        try {
+            $iterator = new \DirectoryIterator( $sites_dir );
+        } catch ( \Exception $e ) {
+            return;
+        }
+
+        foreach ( $iterator as $item ) {
+            if ( $item->isDot() ) {
+                continue;
+            }
+            if ( $item->isFile() ) {
+                wp_delete_file( $item->getPathname() );
+            }
+        }
+
+        self::delete_empty_directory( $sites_dir );
+    }
+
+    /**
+     * True when the install is a multisite network.
+     *
+     * @return bool
+     */
+    private static function is_multisite_install() {
+        return function_exists( 'is_multisite' ) && is_multisite();
+    }
+
+    /**
+     * The id of the site currently being rendered, or 1 on single-site.
+     *
+     * @return int
+     */
+    private static function current_site_id() {
+        if ( function_exists( 'get_current_blog_id' ) ) {
+            return (int) get_current_blog_id();
+        }
+        return 1;
+    }
+
+    /**
+     * Untrailingslashed home URL for a site.
+     *
+     * @param int $blog_id Site id.
+     * @return string
+     */
+    private static function site_home_url( $blog_id ) {
+        $blog_id = (int) $blog_id;
+        if ( $blog_id <= 0 ) {
+            return '';
+        }
+
+        // get_home_url( $blog_id ) switches to that blog and back even for the
+        // current site, which is wasteful on the per-request path. Use home_url()
+        // directly when the id is already current. The current id is read into a
+        // variable rather than compared inline so the cast is not mistaken for a
+        // literal by the Yoda-conditions sniff.
+        $current_blog_id = function_exists( 'get_current_blog_id' ) ? (int) get_current_blog_id() : 0;
+        $is_current      = ( $blog_id === $current_blog_id );
+
+        if ( $is_current ) {
+            $home = home_url( '/' );
+        } else {
+            $home = function_exists( 'get_home_url' ) ? get_home_url( $blog_id ) : home_url( '/' );
+        }
+
+        if ( ! is_string( $home ) || '' === $home ) {
+            return '';
+        }
+
+        return untrailingslashit( $home );
+    }
+
+    /**
+     * Writes an array as JSON and verifies the bytes that landed on disk.
+     *
+     * @param string $path Absolute target path.
+     * @param array  $data Data to encode.
+     * @return bool
+     */
+    private static function write_json_file( $path, $data ) {
+        $content = wp_json_encode( $data );
+        if ( false === $content ) {
+            return false;
+        }
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPress.PHP.NoSilencedErrors.Discouraged -- the config directory is not reachable through WP_Filesystem in every path that writes it (activation and pre-init); the write is verified byte-for-byte below.
+        $written = @file_put_contents( $path, $content, LOCK_EX );
+        if ( false === $written || strlen( $content ) !== $written ) {
+            return false;
+        }
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- read-back verification of the file just written; WP_Filesystem is not always initialised on this path.
+        return file_get_contents( $path ) === $content;
+    }
+
+    /**
+     * Reads and decodes a JSON file.
+     *
+     * @param string $path Absolute path.
+     * @return array|null Decoded array, or null when missing or invalid.
+     */
+    private static function read_json_file( $path ) {
+        if ( ! file_exists( $path ) ) {
+            return null;
+        }
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reading the small network index; WP_Filesystem is not initialised on every front-end request.
+        $raw = file_get_contents( $path );
+        if ( ! is_string( $raw ) || '' === $raw ) {
+            return null;
+        }
+
+        $decoded = json_decode( $raw, true );
+        return is_array( $decoded ) ? $decoded : null;
     }
 
     /**
@@ -388,6 +867,173 @@ add_action( 'init', array( $this, 'init' ) );
             }
         }
         return array_values( array_unique( $hosts ) );
+    }
+
+    /**
+     * Converts an internal URL into an absolute filesystem path.
+     *
+     * Every module uses this one implementation so a URL is never mapped with
+     * the wrong assumption that site_url() equals ABSPATH. The host must belong
+     * to this site, the query string and fragment are dropped, and any ".." or
+     * NUL byte aborts the conversion. The longest matching base URL (content,
+     * includes, admin, plugins, uploads, then the site root) wins, so a custom
+     * content directory or a subdirectory install maps to the right folder.
+     *
+     * @param string $url Absolute or site-relative URL.
+     * @return string|false Absolute path, or false when the URL is not a safe
+     *                      internal URL.
+     */
+    public static function url_to_path( $url ) {
+        if ( ! is_string( $url ) || '' === $url ) {
+            return false;
+        }
+
+        $url = esc_url_raw( $url );
+        if ( '' === $url ) {
+            return false;
+        }
+
+        $parsed = wp_parse_url( $url );
+        if ( ! is_array( $parsed ) || ! isset( $parsed['path'] ) || '' === $parsed['path'] ) {
+            return false;
+        }
+
+        // A host that is not one of ours is never mapped to a local file.
+        if ( ! empty( $parsed['host'] ) && ! self::url_host_is_internal( $url ) ) {
+            return false;
+        }
+
+        $request_path = rawurldecode( (string) $parsed['path'] );
+        if ( self::path_has_traversal( $request_path ) ) {
+            return false;
+        }
+
+        // No host: resolve a site-relative path against the WordPress root.
+        if ( empty( $parsed['host'] ) ) {
+            $relative = ltrim( $request_path, '/' );
+            if ( '' === $relative ) {
+                return false;
+            }
+            return wp_normalize_path( ABSPATH . $relative );
+        }
+
+        $bases = array();
+
+        $register_base = static function ( $base_url, $base_dir ) use ( &$bases ) {
+            if ( ! is_string( $base_url ) || '' === $base_url || ! is_string( $base_dir ) || '' === $base_dir ) {
+                return;
+            }
+            $base_path = wp_parse_url( $base_url, PHP_URL_PATH );
+            $base_path = is_string( $base_path ) ? untrailingslashit( rawurldecode( $base_path ) ) : '';
+            $bases[] = array(
+                'path' => $base_path,
+                'dir'  => trailingslashit( wp_normalize_path( $base_dir ) ),
+            );
+        };
+
+        $register_base( content_url(), WP_CONTENT_DIR );
+        $register_base( includes_url(), ABSPATH . WPINC );
+        $register_base( admin_url(), ABSPATH . 'wp-admin' );
+        $register_base( plugins_url(), WP_PLUGIN_DIR );
+        $upload_dir = wp_upload_dir();
+        if ( empty( $upload_dir['error'] ) ) {
+            $register_base( $upload_dir['baseurl'], $upload_dir['basedir'] );
+        }
+        $register_base( site_url(), ABSPATH );
+        $register_base( home_url(), ABSPATH );
+
+        $best = null;
+        foreach ( $bases as $candidate ) {
+            $base_path = $candidate['path'];
+            if ( '' !== $base_path && $request_path !== $base_path && 0 !== strpos( $request_path, $base_path . '/' ) ) {
+                continue;
+            }
+            if ( null === $best || strlen( $base_path ) > strlen( $best['path'] ) ) {
+                $best = $candidate;
+            }
+        }
+
+        if ( null === $best ) {
+            return false;
+        }
+
+        $relative = ltrim( substr( $request_path, strlen( $best['path'] ) ), '/' );
+        if ( '' === $relative ) {
+            return untrailingslashit( $best['dir'] );
+        }
+
+        return wp_normalize_path( $best['dir'] . $relative );
+    }
+
+    /**
+     * True when a URL path contains a directory traversal or NUL byte.
+     *
+     * Backslashes are treated as separators too, so a Windows-style "..\\"
+     * segment is rejected as well as the usual "../".
+     *
+     * @param string $path URL path component.
+     * @return bool
+     */
+    public static function path_has_traversal( $path ) {
+        if ( ! is_string( $path ) || '' === $path ) {
+            return true;
+        }
+
+        if ( false !== strpos( $path, "\0" ) ) {
+            return true;
+        }
+
+        // Iteratively decode percent-encoding to catch multi-encoded traversal (e.g. %252e) and encoded NULs.
+        $decoded_path = $path;
+        for ( $i = 0; $i < 3; $i++ ) {
+            if ( false === strpos( $decoded_path, '%' ) ) {
+                break;
+            }
+            $next = rawurldecode( $decoded_path );
+            if ( $next === $decoded_path ) {
+                break;
+            }
+            $decoded_path = $next;
+        }
+
+        if ( false !== strpos( $decoded_path, "\0" ) ) {
+            return true;
+        }
+
+        $segments = explode( '/', str_replace( '\\', '/', $decoded_path ) );
+        foreach ( $segments as $segment ) {
+            if ( '..' === $segment ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * True when a URL's host belongs to this WordPress install.
+     *
+     * @param string $url Full URL.
+     * @return bool
+     */
+    public static function url_host_is_internal( $url ) {
+        if ( ! is_string( $url ) || '' === $url ) {
+            return false;
+        }
+
+        $host = wp_parse_url( $url, PHP_URL_HOST );
+        if ( ! is_string( $host ) || '' === $host ) {
+            return false;
+        }
+
+        $host = strtolower( $host );
+        foreach ( self::get_expected_hosts() as $expected ) {
+            if ( $host === $expected ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -750,17 +1396,96 @@ add_action( 'init', array( $this, 'init' ) );
         self::ensure_directory_protection( $cache_dir );
     }
 
-    private function get_log_file() {
-        if ( null === $this->log_file ) {
-            $upload_dir = wp_upload_dir();
-            $log_dir = trailingslashit( $upload_dir['basedir'] ) . 'wp-fastlayer-logs/';
-            if ( ! file_exists( $log_dir ) ) {
-                wp_mkdir_p( $log_dir );
-            }
-            self::ensure_directory_protection( $log_dir );
-            $this->log_file = $log_dir . 'performance.log';
+    /**
+     * Determines whether a filesystem path is located outside the public web root.
+     *
+     * Validates against both ABSPATH and DOCUMENT_ROOT (when available) so that
+     * logs are never placed in a web-accessible directory.
+     *
+     * @param string $path Target filesystem path.
+     * @return bool True if the path is confirmed to be outside the web root.
+     */
+    public static function is_path_outside_webroot( $path ) {
+        $path = wp_normalize_path( untrailingslashit( (string) $path ) );
+        if ( '' === $path ) {
+            return false;
         }
-        return $this->log_file;
+
+        $abspath = wp_normalize_path( untrailingslashit( ABSPATH ) );
+        if ( '' !== $abspath && ( 0 === strpos( $path, $abspath . '/' ) || $path === $abspath ) ) {
+            return false;
+        }
+
+        if ( isset( $_SERVER['DOCUMENT_ROOT'] ) && is_string( $_SERVER['DOCUMENT_ROOT'] ) && '' !== $_SERVER['DOCUMENT_ROOT'] ) {
+            $raw_doc_root = sanitize_text_field( wp_unslash( $_SERVER['DOCUMENT_ROOT'] ) );
+            $doc_root     = wp_normalize_path( untrailingslashit( $raw_doc_root ) );
+            if ( '' !== $doc_root && ( 0 === strpos( $path, $doc_root . '/' ) || $path === $doc_root ) ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolves the filesystem path for performance.log.
+     *
+     * Prefers a directory located outside the public web root (ABSPATH and DOCUMENT_ROOT).
+     * If no secure writable directory outside the web root can be established, fails closed
+     * by returning false so that no log file is created in a public directory.
+     *
+     * @return string|false Absolute path to the log file, or false if no secure location exists.
+     */
+    public function get_log_file() {
+        if ( null !== $this->log_file ) {
+            return $this->log_file;
+        }
+
+        $candidates = array();
+
+        if ( defined( 'FASTLAYER_LOG_DIR' ) && is_string( FASTLAYER_LOG_DIR ) && '' !== FASTLAYER_LOG_DIR ) {
+            $candidates[] = wp_normalize_path( FASTLAYER_LOG_DIR );
+        }
+
+        $abspath = wp_normalize_path( untrailingslashit( ABSPATH ) );
+        $parent_abspath = dirname( $abspath );
+        if ( '' !== $parent_abspath && $parent_abspath !== $abspath ) {
+            $candidates[] = $parent_abspath . '/fastlayer-logs';
+        }
+
+        if ( isset( $_SERVER['DOCUMENT_ROOT'] ) && is_string( $_SERVER['DOCUMENT_ROOT'] ) && '' !== $_SERVER['DOCUMENT_ROOT'] ) {
+            $raw_doc_root    = sanitize_text_field( wp_unslash( $_SERVER['DOCUMENT_ROOT'] ) );
+            $doc_root        = wp_normalize_path( untrailingslashit( $raw_doc_root ) );
+            $parent_doc_root = dirname( $doc_root );
+            if ( '' !== $parent_doc_root && $parent_doc_root !== $doc_root ) {
+                $candidates[] = $parent_doc_root . '/fastlayer-logs';
+            }
+        }
+
+        foreach ( array_unique( $candidates ) as $candidate_dir ) {
+            if ( ! self::is_path_outside_webroot( $candidate_dir ) ) {
+                continue;
+            }
+
+            $candidate_dir = trailingslashit( $candidate_dir );
+
+            if ( ! file_exists( $candidate_dir ) ) {
+                if ( ! @wp_mkdir_p( $candidate_dir ) ) {
+                    continue;
+                }
+            }
+
+            if ( is_dir( $candidate_dir ) && wp_is_writable( $candidate_dir ) ) {
+                self::ensure_directory_protection( $candidate_dir );
+                $this->log_file = $candidate_dir . 'performance.log';
+                return $this->log_file;
+            }
+        }
+
+        // Fail-closed: No secure writable directory outside the public web root could be established.
+        // File logging is disabled rather than exposing logs in the public document root.
+        $this->log_file = false;
+        return false;
     }
 
     /**
@@ -828,11 +1553,28 @@ add_action( 'init', array( $this, 'init' ) );
     }
 
     private function create_logs_directory() {
-        $this->get_log_file();
+        $log_file = $this->get_log_file();
+        if ( false !== $log_file && '' !== $log_file ) {
+            if ( ! file_exists( $log_file ) ) {
+                @file_put_contents( $log_file, '' );
+            }
+        }
 
-        $log_file = $this->log_file;
-        if ( ! file_exists( $log_file ) ) {
-            @file_put_contents( $log_file, '' );
+        // Actively clean up any legacy public log files in uploads/ to prevent direct HTTP access on Nginx.
+        $upload_dir = wp_upload_dir();
+        $legacy_upload_log_dir = trailingslashit( $upload_dir['basedir'] ) . 'wp-fastlayer-logs/';
+        if ( is_dir( $legacy_upload_log_dir ) ) {
+            $legacy_upload_log = $legacy_upload_log_dir . 'performance.log';
+            if ( file_exists( $legacy_upload_log ) ) {
+                wp_delete_file( $legacy_upload_log );
+            }
+            foreach ( array( '.htaccess', 'index.php' ) as $protection_file ) {
+                $p_file = $legacy_upload_log_dir . $protection_file;
+                if ( file_exists( $p_file ) ) {
+                    wp_delete_file( $p_file );
+                }
+            }
+            self::delete_empty_directory( $legacy_upload_log_dir );
         }
 
         $old_log_dir = FASTLAYER_PATH . 'logs/';
@@ -849,6 +1591,13 @@ add_action( 'init', array( $this, 'init' ) );
         if ( ! $this->is_debug_mode ) return;
 
         $log_file = $this->get_log_file();
+        if ( false === $log_file || '' === $log_file ) {
+            // Fail-closed: File logging disabled because no secure location outside web root exists.
+            // Falls back to standard WordPress debug logging if enabled.
+            \fastlayer_debug_log( sprintf( '[WP FastLayer] [%s] %s', strtoupper( $type ), $message ) );
+            return;
+        }
+
         $timestamp = current_time( 'Y-m-d H:i:s' );
         $log_entry = sprintf( '[%s] [%s] %s', $timestamp, strtoupper( $type ), $message ) . PHP_EOL;
 
@@ -857,15 +1606,15 @@ add_action( 'init', array( $this, 'init' ) );
 
     public function get_logs() {
         $log_file = $this->get_log_file();
-        if ( ! file_exists( $log_file ) ) return array();
+        if ( false === $log_file || '' === $log_file || ! file_exists( $log_file ) ) return array();
 
         $logs = file( $log_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
-        return array_reverse( $logs );
+        return is_array( $logs ) ? array_reverse( $logs ) : array();
     }
 
     public function clear_logs() {
         $log_file = $this->get_log_file();
-        if ( file_exists( $log_file ) ) {
+        if ( false !== $log_file && '' !== $log_file && file_exists( $log_file ) ) {
             wp_delete_file( $log_file );
         }
     }

@@ -14,11 +14,43 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $fastlayer_cache_dir = WP_CONTENT_DIR . '/cache/wp-fastlayer/';
-$fastlayer_config_file = $fastlayer_cache_dir . 'config.php';
 $fastlayer_options = array();
-if ( file_exists( $fastlayer_config_file ) ) {
-    $fastlayer_options = include $fastlayer_config_file;
+
+// On multisite the options are stored per site, so each site has its own config
+// file and sites.json maps a site's home URL to its id. This drop-in runs
+// before ms-settings.php sets up the current site, so the site is resolved here
+// from the request host and path. On single-site there is no index and
+// config.json is authoritative.
+$fastlayer_sites_index = $fastlayer_cache_dir . 'sites.json';
+$fastlayer_has_index   = file_exists( $fastlayer_sites_index );
+
+if ( $fastlayer_has_index ) {
+    $fastlayer_index_options = fastlayer_load_site_options_from_index( $fastlayer_sites_index );
+    if ( is_array( $fastlayer_index_options ) ) {
+        $fastlayer_options = $fastlayer_index_options;
+    }
+} else {
+    // The canonical single-site config is plain JSON so nothing under
+    // wp-content/ is executed.
+    $fastlayer_config_json = $fastlayer_cache_dir . 'config.json';
+    if ( file_exists( $fastlayer_config_json ) ) {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- advanced-cache.php runs before the WP Filesystem API is available.
+        $fastlayer_config_raw = file_get_contents( $fastlayer_config_json );
+        if ( is_string( $fastlayer_config_raw ) && '' !== $fastlayer_config_raw ) {
+            $fastlayer_config_decoded = json_decode( $fastlayer_config_raw, true );
+            if ( is_array( $fastlayer_config_decoded ) ) {
+                $fastlayer_options = $fastlayer_config_decoded;
+            }
+        }
+    }
 }
+
+// Configuration is strictly loaded from config.json (or sites.json on
+// multisite). If config.json is not yet generated (e.g. immediately following
+// an upgrade from a pre-1.1.0 version), $fastlayer_options remains empty,
+// causing fastlayer_cache_enabled() to return false and safely bypassing
+// cache serving until Bootstrap::ensure_static_config() generates config.json
+// during WordPress initialization. The drop-in never executes PHP files from cache.
 
 $fastlayer_cache_expiration = 36000;
 if ( isset( $fastlayer_options['cache_expiration'] ) ) {
@@ -27,7 +59,7 @@ if ( isset( $fastlayer_options['cache_expiration'] ) ) {
 
 function fastlayer_cache_enabled() {
     global $fastlayer_options;
-    return isset( $fastlayer_options['enable_cache'] ) && '1' === $fastlayer_options['enable_cache'];
+    return isset( $fastlayer_options['enable_cache'] ) && '1' === (string) $fastlayer_options['enable_cache'];
 }
 
 function fastlayer_get_option_lines( $key ) {
@@ -80,16 +112,236 @@ function fastlayer_normalize_request_host() {
     }
 
     $host = strtolower( trim( $_SERVER['HTTP_HOST'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision or a validated cache key.
+
+    // Support bracketed IPv6 literals, with or without a port: [::1] or [::1]:8080.
+    if ( '[' === substr( $host, 0, 1 ) ) {
+        $end = strpos( $host, ']' );
+        if ( false === $end ) {
+            return '';
+        }
+        $literal = substr( $host, 1, $end - 1 );
+        if ( '' === $literal || ! filter_var( $literal, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+            return '';
+        }
+        // Reject anything after the closing bracket except a valid :port.
+        $remainder = substr( $host, $end + 1 );
+        if ( '' !== $remainder ) {
+            if ( ':' !== substr( $remainder, 0, 1 ) ) {
+                return '';
+            }
+            $port = substr( $remainder, 1 );
+            if ( ! preg_match( '/^[0-9]{1,5}$/', $port ) || (int) $port < 1 || (int) $port > 65535 ) {
+                return '';
+            }
+        }
+        return '[' . $literal . ']';
+    }
+
+    // Bare unbracketed IPv6 literal (e.g. ::1 or 2001:db8::1).
+    if ( filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+        return '[' . $host . ']';
+    }
+
     $colon = strpos( $host, ':' );
     if ( false !== $colon ) {
+        $port = substr( $host, $colon + 1 );
+        if ( ! preg_match( '/^[0-9]{1,5}$/', $port ) || (int) $port < 1 || (int) $port > 65535 ) {
+            return '';
+        }
         $host = substr( $host, 0, $colon );
     }
+
+    // Support trailing dot in FQDN (e.g. example.com.).
+    $host = rtrim( $host, '.' );
 
     if ( ! preg_match( '/^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/', $host ) ) {
         return '';
     }
 
     return $host;
+}
+
+/**
+ * Normalizes a host for comparison (lowercase, port removed).
+ *
+ * Applies the same validation rules as fastlayer_normalize_request_host() so
+ * that the two helpers always agree: a bracketed IPv6 literal must contain a
+ * valid IPv6 address, have no trailing junk after the closing bracket, and not
+ * be unterminated. Bare IPv6 literals are wrapped in brackets for consistency.
+ *
+ * @param string $host Raw host.
+ * @return string Normalised host, or '' when the input is invalid.
+ */
+function fastlayer_normalize_host( $host ) {
+    $host = strtolower( trim( (string) $host ) );
+    if ( '' === $host ) {
+        return '';
+    }
+
+    if ( '[' === substr( $host, 0, 1 ) ) {
+        $end = strpos( $host, ']' );
+        if ( false === $end ) {
+            // Unterminated bracket — invalid.
+            return '';
+        }
+        $literal = substr( $host, 1, $end - 1 );
+        if ( '' === $literal || ! filter_var( $literal, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+            // Not a valid IPv6 address (e.g. [gggg] or [::1%25eth0]).
+            return '';
+        }
+        // Reject trailing characters after the closing bracket (e.g. [::1]x).
+        // A port suffix (:port) is acceptable but must be a valid port.
+        $remainder = substr( $host, $end + 1 );
+        if ( '' !== $remainder ) {
+            if ( ':' !== substr( $remainder, 0, 1 ) ) {
+                return '';
+            }
+            $port = substr( $remainder, 1 );
+            if ( ! preg_match( '/^[0-9]{1,5}$/', $port ) || (int) $port < 1 || (int) $port > 65535 ) {
+                return '';
+            }
+        }
+        return '[' . $literal . ']';
+    }
+
+    // Bare unbracketed IPv6 literal (e.g. ::1 or 2001:db8::1).
+    if ( filter_var( $host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+        return '[' . $host . ']';
+    }
+
+    $colon = strpos( $host, ':' );
+    if ( false !== $colon ) {
+        $port = substr( $host, $colon + 1 );
+        if ( ! preg_match( '/^[0-9]{1,5}$/', $port ) || (int) $port < 1 || (int) $port > 65535 ) {
+            return '';
+        }
+        $host = substr( $host, 0, $colon );
+    }
+
+    // Support trailing dot in FQDN (e.g. example.com.).
+    $host = rtrim( $host, '.' );
+
+    if ( ! preg_match( '/^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/', $host ) ) {
+        return '';
+    }
+
+    return $host;
+}
+
+/**
+ * The request path, without query string or fragment.
+ *
+ * @return string
+ */
+function fastlayer_request_path() {
+    $uri = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '/'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- advanced-cache.php is included before wp-includes/functions.php (wp_unslash()/sanitize_* are undefined) and before wp_magic_quotes() slashes the superglobals; the value is only used for a read-only cache decision.
+
+    $question = strpos( $uri, '?' );
+    if ( false !== $question ) {
+        $uri = substr( $uri, 0, $question );
+    }
+    $hash = strpos( $uri, '#' );
+    if ( false !== $hash ) {
+        $uri = substr( $uri, 0, $hash );
+    }
+
+    if ( '' === $uri || '/' !== substr( $uri, 0, 1 ) ) {
+        $uri = '/' . $uri;
+    }
+
+    return $uri;
+}
+
+/**
+ * Resolves the current request to a site id using the network index.
+ *
+ * Mirrors the longest-prefix domain + path match WordPress performs in
+ * ms_load_current_site_and_network(), but reads the pre-generated index instead
+ * of the database, because the drop-in runs before WordPress is loaded.
+ *
+ * @param array $index Map of home URL => blog id.
+ * @return int Blog id, or 0 when nothing matches.
+ */
+function fastlayer_resolve_blog_id( $index ) {
+    $host = fastlayer_normalize_request_host();
+    if ( '' === $host ) {
+        return 0;
+    }
+
+    $path     = fastlayer_request_path();
+    $best_id  = 0;
+    $best_len = -1;
+
+    foreach ( $index as $home_url => $blog_id ) {
+        $blog_id = (int) $blog_id;
+        if ( $blog_id <= 0 ) {
+            continue;
+        }
+
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- advanced-cache.php runs before wp_parse_url() is defined.
+        $parts = parse_url( (string) $home_url );
+        if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+            continue;
+        }
+        if ( fastlayer_normalize_host( $parts['host'] ) !== $host ) {
+            continue;
+        }
+
+        $home_path = isset( $parts['path'] ) ? (string) $parts['path'] : '/';
+        $home_path = '/' . ltrim( $home_path, '/' );
+        $home_path = rtrim( $home_path, '/' );
+
+        if ( '' !== $home_path && $path !== $home_path && 0 !== strpos( $path, $home_path . '/' ) ) {
+            continue;
+        }
+
+        if ( strlen( $home_path ) > $best_len ) {
+            $best_len = strlen( $home_path );
+            $best_id  = $blog_id;
+        }
+    }
+
+    return $best_id;
+}
+
+/**
+ * Loads the per-site options for the current request on multisite.
+ *
+ * @param string $index_file Absolute path to sites.json.
+ * @return array|null Options array, or null when the site cannot be resolved.
+ */
+function fastlayer_load_site_options_from_index( $index_file ) {
+    global $fastlayer_cache_dir;
+
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- advanced-cache.php runs before the WP Filesystem API is available.
+    $index_raw = file_get_contents( $index_file );
+    if ( ! is_string( $index_raw ) || '' === $index_raw ) {
+        return null;
+    }
+
+    $index = json_decode( $index_raw, true );
+    if ( ! is_array( $index ) || empty( $index ) ) {
+        return null;
+    }
+
+    $blog_id = fastlayer_resolve_blog_id( $index );
+    if ( $blog_id <= 0 ) {
+        return null;
+    }
+
+    $site_file = $fastlayer_cache_dir . 'sites/' . (int) $blog_id . '.json';
+    if ( ! file_exists( $site_file ) ) {
+        return null;
+    }
+
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- advanced-cache.php runs before the WP Filesystem API is available.
+    $site_raw = file_get_contents( $site_file );
+    if ( ! is_string( $site_raw ) || '' === $site_raw ) {
+        return null;
+    }
+
+    $site_options = json_decode( $site_raw, true );
+    return is_array( $site_options ) ? $site_options : null;
 }
 
 function fastlayer_is_request_host_trusted() {

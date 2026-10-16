@@ -45,6 +45,7 @@ fastlayer/
 ├── uninstall.php                 # Full cleanup on delete
 ├── readme.txt                    # WordPress.org readme
 ├── AGENTS.md                     # This file
+├── .gitignore                    # Dev-only git ignore rules (never shipped)
 ├── assets/
 │   ├── css/admin.css
 │   ├── js/admin.js
@@ -61,8 +62,10 @@ fastlayer/
 │   ├── class-admin-bar.php            # Admin bar cache actions
 │   └── class-database-optimization.php# DB cleanup routines
 ├── languages/fastlayer.pot
-├── docs/                          # Architecture, review fixes, release checklist
-└── tests/                         # QA checklist
+├── docs/                          # Architecture, review history, audit findings, release checklist
+├── tests/                         # QA checklist, wp eval-file regression scripts, PHPCS gate
+├── .github/workflows/             # CI quality gates (dev-only; never shipped)
+└── .opencode/skills/              # Project AI skills (dev-only; never shipped)
 ```
 
 ---
@@ -87,6 +90,14 @@ fastlayer/
 > touch any file, keep its existing ending (or save the whole file with one
 > consistent ending) so the finding does not come back, but keep the diff
 > reviewable.
+
+> **WPCS gate policy.** The plugin intentionally uses **4-space PHP
+> indentation**, so a raw `phpcs --standard=WordPress` pass/fail gate is not
+> meaningful — it reports thousands of `Generic.WhiteSpace.DisallowSpaceIndent`
+> findings. The authoritative code gate is **Plugin Check** (which must stay at
+> **0 ERROR**). For WPCS, compare **per sniff** against
+> `tests/phpcs-baseline.json` using `tests/phpcs-gate.php`; a new
+> non-formatting rule category is a regression. See `docs/CI-RELEASE-GATES.md`.
 
 ---
 
@@ -196,18 +207,24 @@ rewrite historical entries.
 Before submitting a change:
 
 1. Run `node --check` on every changed `assets/js/*.js` file.
-2. Run PHPCS (WPCS) — if PHP/PHPCS are unavailable, say so in the PR/notes and
-   do not claim it passed.
+2. Run `php -l` on every changed `.php` file.
 3. Run **Plugin Check** (the WordPress.org "Plugin Check" plugin or the PCP
-   scanner) and compare against `docs/REVIEW-FIXES.md`.
-4. Walk the relevant sections of `tests/QA-CHECKLIST.md`.
-5. Confirm nothing in `docs/RELEASE-CHECKLIST.md` regressed.
+   scanner) and compare against `docs/REVIEW-FIXES.md` / `docs/AUDIT-FINDINGS.md`.
+   It must stay at **0 ERROR**.
+4. Run the relevant `tests/*.php` regression scripts with `wp eval-file` and
+   report the exit status.
+5. For WPCS, run `phpcs --standard=WordPress` and compare per sniff with
+   `php tests/phpcs-gate.php` — do not claim a raw WPCS pass (see §3).
+6. Walk the relevant sections of `tests/QA-CHECKLIST.md`.
+7. Confirm nothing in `docs/RELEASE-CHECKLIST.md` regressed, and that
+   `.github/workflows/quality-gates.yml` would still be green.
 
 ### Tool availability in this environment
 
 Verified in the current workspace (do not assume otherwise without re-checking):
 
-- **Available:** `node` (v22.23.2), `npm`, `npx`, `git`.
+- **Available:** `node` (v22.23.2), `npm`, `npx`, `git`. The plugin folder is a
+  git repository (branch `main`).
 - **Available — LocalWP site toolchain (since round 3):**
   - **PHP 7.4.30 CLI:** `%APPDATA%\Local\lightning-services\php-7.4.30+6\bin\win64\php.exe`.
     It loads no `php.ini`, so enable extensions at runtime with
@@ -234,8 +251,10 @@ Verified in the current workspace (do not assume otherwise without re-checking):
 
 - Fix the **root cause**, not the symptom. Do not silence a linter rule with an
   inline ignore when the finding is real.
-- When you fix a bug, add a regression note (or test, once a PHP test harness
-  exists) that would have caught it.
+- When you fix a bug, add a regression note **and** a `tests/test-<name>.php`
+  `wp eval-file` script that would have caught it. Prove it fails against the
+  pre-fix body (A/B) before claiming it passes — see the
+  `wordpress-test-engineer` skill.
 - Keep changes focused: one concern per change set.
 - Do not make unrelated changes to plugin code while doing documentation or
   review work.
@@ -254,6 +273,9 @@ See `docs/RELEASE-CHECKLIST.md` for the full procedure. Non-negotiables:
 - Never edit `wp-config.php` in a repo/working copy by hand as part of a plugin
   change; the plugin edits the live config at runtime through the safe path.
 - Do not install dependencies or change tooling configuration without approval.
+  The CI workflow installs PHPCS/WPCS in an isolated `$RUNNER_TEMP` directory so
+  that **no `composer.json`/`vendor/` is committed** to the plugin root and the
+  18-file production manifest is unchanged.
 
 ---
 
@@ -266,3 +288,29 @@ See `docs/RELEASE-CHECKLIST.md` for the full procedure. Non-negotiables:
 - Remove legacy-migration code.
 - Claim an unexecuted test passed.
 - Create a release ZIP or publish anything.
+
+---
+
+## 12. Automated quality gates and AI skills
+
+- **CI:** `.github/workflows/quality-gates.yml` runs on push/PR — PHP lint
+  (7.4 + 8.2), JS syntax, three-place version sync, Plugin Check (must be
+  0 ERROR) and the WPCS baseline-delta gate. Details:
+  `docs/CI-RELEASE-GATES.md`.
+- **Project skills** live at `.opencode/skills/<id>/SKILL.md` (the skill id is
+  the directory name). The seven skills are `wordpress-plugin-architect`,
+  `wordpress-security-auditor`, `wordpress-filesystem-auditor`,
+  `wordpress-performance-auditor`, `wordpress-test-engineer`,
+  `wordpress-org-reviewer` and `release-gatekeeper`; their mapping to the audit
+  is in `docs/AI-SKILLS-PLAN.md`.
+- **Permanent rules learned in the round-9 audit (A–G, `docs/AUDIT-FINDINGS.md`):**
+  - All URL→path conversion goes through `Bootstrap::url_to_path()`; never add
+    another copy, and never assume `site_url()` equals `ABSPATH`.
+  - Generated config under `wp-content/cache/` is **JSON** (`config.json`),
+    never executable PHP. A legacy `config.php` is only ever read, then removed.
+  - Generated URLs written into HTML attributes are escaped at insertion
+    (`esc_attr`/`esc_url`); CSS `url()` values go through `sanitize_css_url()`.
+  - Every output buffer FastLayer opens is flushed under a `buffer_level` guard,
+    in the order optimizer → page cache.
+- These rules and their directories are dev-only and excluded from the
+  production ZIP (with `AGENTS.md`, `docs/`, `tests/`, `.github/`, `.opencode/`).

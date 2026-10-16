@@ -170,6 +170,7 @@ class Page_Cache {
 
         \add_action( 'template_redirect', array( $this, 'maybe_serve_cache' ), 1 );
         \add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_debug_script' ), 9999 );
+        \add_action( 'shutdown', array( $this, 'flush_output_buffer' ), 5 );
         \add_action( 'shutdown', array( $this, 'save_cache' ), 999 );
 
         \add_action( 'save_post', array( $this, 'clear_cache_on_post_update' ), 10, 2 );
@@ -285,7 +286,7 @@ class Page_Cache {
 
     private function is_cache_enabled() {
         $options = \get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_cache'] ) && '1' === $options['enable_cache'];
+        return isset( $options['enable_cache'] ) && '1' === (string) $options['enable_cache'];
     }
 
     private function should_skip_cache() {
@@ -386,10 +387,46 @@ class Page_Cache {
      * hosts stored in the static config, so both cache paths agree.
      */
     private function is_request_host_trusted() {
-        $host = ( isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ) ? \strtolower( \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_HOST'] ) ) ) : '';
-        $colon = \strpos( $host, ':' );
-        if ( false !== $colon ) {
-            $host = \substr( $host, 0, $colon );
+        $raw_host = ( isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ) ? \strtolower( \sanitize_text_field( \wp_unslash( $_SERVER['HTTP_HOST'] ) ) ) : '';
+        if ( '' === $raw_host ) {
+            return false;
+        }
+
+        if ( '[' === \substr( $raw_host, 0, 1 ) ) {
+            $end = \strpos( $raw_host, ']' );
+            if ( false === $end ) {
+                return false;
+            }
+            $literal = \substr( $raw_host, 1, $end - 1 );
+            if ( '' === $literal || ! \filter_var( $literal, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+                return false;
+            }
+            $remainder = \substr( $raw_host, $end + 1 );
+            if ( '' !== $remainder ) {
+                if ( ':' !== \substr( $remainder, 0, 1 ) ) {
+                    return false;
+                }
+                $port = \substr( $remainder, 1 );
+                if ( ! \preg_match( '/^[0-9]{1,5}$/', $port ) || (int) $port < 1 || (int) $port > 65535 ) {
+                    return false;
+                }
+            }
+            $host = '[' . $literal . ']';
+        } elseif ( \filter_var( $raw_host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
+            $host = '[' . $raw_host . ']';
+        } else {
+            $colon = \strpos( $raw_host, ':' );
+            if ( false !== $colon ) {
+                $port = \substr( $raw_host, $colon + 1 );
+                if ( ! \preg_match( '/^[0-9]{1,5}$/', $port ) || (int) $port < 1 || (int) $port > 65535 ) {
+                    return false;
+                }
+                $raw_host = \substr( $raw_host, 0, $colon );
+            }
+            $host = \rtrim( $raw_host, '.' );
+            if ( ! \preg_match( '/^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/', $host ) ) {
+                return false;
+            }
         }
 
         if ( '' === $host ) {
@@ -643,6 +680,27 @@ class Page_Cache {
         \set_transient( 'fastlayer_cache_debug_trace', $trace, 300 );
     }
 
+    /**
+     * Flushes FastLayer's page-cache output buffer at shutdown.
+     *
+     * Runs at priority 5, after the optimizer's inner buffer (priority 1) has
+     * already flushed its minified output into this one and before save_cache()
+     * (priority 999) reads the captured content. The level guard means only a
+     * buffer FastLayer opened itself is closed; if another plugin has opened a
+     * buffer on top, or the buffer was already closed, nothing is touched.
+     * Flushing runs capture_output_buffer so the full page is retained for the
+     * cache write. The stored level is cleared afterwards, so a foreign buffer
+     * opened later at the same numeric level is never mistaken for ours. The
+     * buffer_started flag is deliberately left set: save_cache() relies on it to
+     * know this request was cacheable.
+     */
+    public function flush_output_buffer() {
+        if ( $this->buffer_started && $this->buffer_level > 0 && \ob_get_level() === $this->buffer_level ) {
+            \ob_end_flush();
+            $this->buffer_level = 0;
+        }
+    }
+
     public function capture_output_buffer( $buffer ) {
         if ( is_string( $buffer ) && '' !== $buffer ) {
             $this->captured_buffer_content = $buffer;
@@ -827,8 +885,11 @@ class Page_Cache {
                     continue;
                 }
 
-                $basename = $file->getBasename();
-                if ( '.htaccess' === $basename || 'index.php' === $basename ) {
+                // Only cached pages are purgeable. config.json, sites.json,
+                // sites/*.json, .htaccess and index.php must survive a clear:
+                // the drop-in depends on them and rewriting config after a
+                // purge is not guaranteed on every code path.
+                if ( 'html' !== strtolower( $file->getExtension() ) ) {
                     continue;
                 }
 
@@ -1139,7 +1200,7 @@ class Page_Cache {
 
     private function is_preload_enabled() {
         $options = \get_option( 'fastlayer_options', array() );
-        return isset( $options['enable_preload'] ) && '1' === $options['enable_preload'];
+        return isset( $options['enable_preload'] ) && '1' === (string) $options['enable_preload'];
     }
 
     private function save_preload_state( $state ) {

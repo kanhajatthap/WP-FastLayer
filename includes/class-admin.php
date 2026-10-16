@@ -1254,36 +1254,7 @@ class Admin {
     }
 
     private function url_to_path( $url ) {
-        $url        = esc_url_raw( $url );
-        $base_url   = site_url();
-        $parsed_url = wp_parse_url( $url );
-
-        if ( empty( $parsed_url['host'] ) || empty( $parsed_url['path'] ) ) {
-            return false;
-        }
-
-        if ( 0 !== strpos( $url, $base_url ) ) {
-            return false;
-        }
-
-        // Ignore query strings and fragments (e.g. "?ver=1.2.3") so the
-        // filesystem check targets the real file.
-        $path = (string) $parsed_url['path'];
-
-        $base_path = wp_parse_url( $base_url, PHP_URL_PATH );
-        $base_path = is_string( $base_path ) ? rtrim( $base_path, '/' ) : '';
-
-        if ( '' !== $base_path && 0 === strpos( $path, $base_path ) ) {
-            $path = substr( $path, strlen( $base_path ) );
-        }
-
-        $relative = ltrim( $path, '/' );
-
-        if ( '' === $relative || false !== strpos( $relative, '..' ) ) {
-            return false;
-        }
-
-        return ABSPATH . $relative;
+        return Bootstrap::url_to_path( $url );
     }
 
     private function get_cache_stats() {
@@ -1837,7 +1808,7 @@ class Admin {
                             <span class="dashicons dashicons-yes-alt"></span>
                         </div>
                         <div class="wpfl-stat-content">
-                            <h3><?php echo isset( $options['enable_cache'] ) && $options['enable_cache'] === '1' ? 'Active' : 'Inactive'; ?></h3>
+                            <h3><?php echo isset( $options['enable_cache'] ) && (string) $options['enable_cache'] === '1' ? 'Active' : 'Inactive'; ?></h3>
                             <p>Cache Status</p>
                         </div>
                     </div>
@@ -2256,7 +2227,7 @@ class Admin {
                         </div>
                         <div class="wpfl-field">
                             <label class="wpfl-toggle">
-                                <?php $this->render_toggle_input( 'enable_js_combine', $options['enable_js_combine'] ?? 0, '', isset( $options['enable_js_defer'] ) && '1' === $options['enable_js_defer'] ? 'disabled' : '' ); ?>
+                                <?php $this->render_toggle_input( 'enable_js_combine', $options['enable_js_combine'] ?? 0, '', isset( $options['enable_js_defer'] ) && '1' === (string) $options['enable_js_defer'] ? 'disabled' : '' ); ?>
                                 <span class="wpfl-toggle-slider"></span>
                                 <span class="wpfl-toggle-label">Combine JavaScript Files</span>
                             </label>
